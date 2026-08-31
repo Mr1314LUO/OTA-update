@@ -7,6 +7,12 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "printf.h"
+#include "firmware_update.h"
+#include "md5.h"
+#include "unzip.h"
+#include "zip.h"
+
+
 
 // 前向声明ota_context结构体
 // typedef struct ota_context ota_context;
@@ -39,11 +45,11 @@ typedef enum {
 
 // 定义状态机上下文结构（与 ota_framework.h 中 ota_context_t 保持一致）
 typedef struct {
-    ota_state_t state;
-    uint32_t total_size;
-    uint32_t downloaded_size;
-    uint8_t progress;        // 0-100
-    char error_msg[64];
+    ota_state_t state;  // 当前状态
+    uint32_t total_size;    // 总升级包大小
+    uint32_t downloaded_size;   // 已下载大小
+    uint8_t progress;        //进度 0-100
+    char error_msg[64];      // 错误信息缓冲区
 } ota_context_t;
 
 // 定义动作函数类型
@@ -66,6 +72,7 @@ void action_prepare_update(ota_context_t *ctx);
 void action_start_updating(ota_context_t *ctx);
 void action_update_success(ota_context_t *ctx);
 void action_update_failed(ota_context_t *ctx);
+void action_no_update(ota_context_t *ctx);
 
 // 前向声明状态机处理函数
 void fsm_handle_event(ota_context_t *ctx, ota_event_t event);

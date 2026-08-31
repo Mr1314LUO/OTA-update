@@ -1,32 +1,27 @@
 #include "table_driven_fsm.h"
-#include "firmware_update.h"
+#include "md5.h"
 
 // ==========================================
 // 定义状态转移表
 // ==========================================
 static OtaStateTransition ota_state_table[] = {
-    // 从IDLE状态开始，当接收到START_CHECK事件时，转移到CHECKING状态
     {OTA_STATE_IDLE,      EVENT_START_CHECK,      OTA_STATE_CHECKING,   action_start_check},
-    // CHECKING状态，清单获取成功
     {OTA_STATE_CHECKING,  EVENT_MANIFEST_SUCCESS, OTA_STATE_CHECKING,   action_fetch_manifest},
-    // CHECKING状态，清单获取失败
     {OTA_STATE_CHECKING,  EVENT_MANIFEST_FAILED,  OTA_STATE_FAILED,     action_update_failed},
-    // CHECKING状态，有可用更新，转移到DOWNLOADING
     {OTA_STATE_CHECKING,  EVENT_UPDATE_AVAILABLE, OTA_STATE_DOWNLOADING, action_start_download},
-    // CHECKING状态，无可用更新，回到IDLE
-    {OTA_STATE_CHECKING,  EVENT_NO_UPDATE,        OTA_STATE_IDLE,       NULL},
-    // DOWNLOADING状态，下载完成，转移到VERIFYING
+    {OTA_STATE_CHECKING,  EVENT_NO_UPDATE,        OTA_STATE_IDLE,       action_no_update},
+    // 下载状态，下载完成，转移到验证状态，执行验证升级包操作
     {OTA_STATE_DOWNLOADING, EVENT_DOWNLOAD_COMPLETE, OTA_STATE_VERIFYING, action_start_verify},
-    // VERIFYING状态，验证成功，转移到READY
+    // 验证状态，验证成功，转移到准备升级状态，执行准备升级操作
     {OTA_STATE_VERIFYING, EVENT_VERIFY_SUCCESS,   OTA_STATE_READY,      action_prepare_update},
-    // READY状态，确认升级，转移到UPDATING
+    // 准备升级状态，确认升级，转移到升级状态，执行升级操作
     {OTA_STATE_READY,     EVENT_READY_CONFIRM,    OTA_STATE_UPDATING,   action_start_updating},
-    // UPDATING状态，升级完成，转移到SUCCESS
+    // 升级状态，升级完成，转移到成功状态，执行升级成功操作
     {OTA_STATE_UPDATING,  EVENT_UPDATE_COMPLETE,  OTA_STATE_SUCCESS,    action_update_success},
-    // SUCCESS状态，保持
-    {OTA_STATE_SUCCESS,   EVENT_MAX,              OTA_STATE_SUCCESS,    NULL},
-    // FAILED状态，保持
-    {OTA_STATE_FAILED,    EVENT_MAX,              OTA_STATE_FAILED,     NULL},
+    // 成功状态，保持成功状态
+    {OTA_STATE_SUCCESS,   EVENT_MAX,              OTA_STATE_SUCCESS,    action_no_update},
+    // 失败状态，保持失败状态
+    {OTA_STATE_FAILED,    EVENT_MAX,              OTA_STATE_FAILED,     action_no_update},
 };
 
 // 开始检查更新
@@ -62,15 +57,14 @@ void action_fetch_manifest(ota_context_t *ctx) {
     }
 }
 
-
-
 // 开始下载升级包
 void action_start_download(ota_context_t *ctx) {
-    // 初始化下载参数
-    ctx->total_size = 1024 * 50; // 假设总大小50KB
-    ctx->downloaded_size = 0;
-    ctx->progress = 0;
-    // 实际下载逻辑应该在这里或单独的任务中执行
+    // // 初始化下载参数
+    // ctx->total_size = 1024 * 50; // 假设总大小50KB
+    // ctx->downloaded_size = 0;
+    // ctx->progress = 0;
+    // // 实际下载逻辑应该在这里或单独的任务中执行
+    (void)ctx;
 }
 
 // 开始验证升级包
@@ -78,31 +72,49 @@ void action_start_verify(ota_context_t *ctx) {
     // 下载完成后，进行完整性校验
     // 校验逻辑应该在这里执行
     (void)ctx;
+    LOG_BLUE_DOT("action_start_verify\n");
+    compare_flie(CHECK_FILE_PATH, MD5_PATH);
 }
-
+// #define unzip_file_path[256]
+const char *unzip_file_path;
 // 准备升级
 void action_prepare_update(ota_context_t *ctx) {
     // 校验通过后，标记准备升级
     // 设置升级标志等准备工作
     (void)ctx;
+    LOG_BLUE_DOT("action_prepare_update\n");
+    //压缩固件包
+    compressed_File(CHECK_FILE_PATH, unzip_file_path, "1.0");
+
 }
 // 开始升级
 void action_start_updating(ota_context_t *ctx) {
     // Bootloader启动后，执行实际升级操作
     // 此部分通常在Bootloader中完成
+    (void)ctx;
+    LOG_BLUE_DOT("action_start_updating\n");
     firmware_update();
 }
 // 升级成功
 void action_update_success(ota_context_t *ctx) {
     // 升级完成后的清理工作
     (void)ctx;
+    LOG_SUCCESS("action_update_success\n");
+
+    // 解压到临时缓冲区
+    uncompressed_File(unzip_file_path, CHECK_FILE_PATH);
 }
 // 升级失败
 void action_update_failed(ota_context_t *ctx) {
     // 失败处理，记录日志等
     (void)ctx;
-}
+    LOG_FAILURE("action_update_failed\n");}
 
+void action_no_update(ota_context_t *ctx) {
+    // 无更新，无需操作
+    (void)ctx;
+    LOG_BLUE_DOT("action_no_update\n");
+}
 
 // 查找并执行状态转移
 void fsm_handle_event(ota_context_t *ctx, ota_event_t event) {

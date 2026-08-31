@@ -16,4 +16,7 @@ typedef struct {
     void (*system_reset)(void);
 } hal_ota_t;
 
+// HAL 初始化函数
+void HAL_Init(void);
+
 #endif // HAL_OTA_H

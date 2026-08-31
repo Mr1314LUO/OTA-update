@@ -22,24 +22,31 @@ bool ota_engine_init(hal_ota_t *hal) {
 }
 
 int main(void) {
-    // 1. 初始化硬件
+    // 初始化硬件
     HAL_Init();
     // ...
 
-    // 2. 初始化OTA引擎，传入HAL接口
+    ota_context_t ota_ctx = {0};    // 初始化状态机上下文
+
+    //初始化OTA引擎，传入HAL接口
     if (!ota_engine_init(&hal_ota_instance)) {
         // 处理错误
     }
 
-    ota_context_t ota_ctx = {0};    // 初始化状态机上下文
+    // 初始化状态
+    ota_ctx.state = OTA_STATE_DOWNLOADING;  // 初始化状态为下载状态
     // ota_ctx.state = OTA_STATE_IDLE; // 初始化状态为空闲
-    ota_ctx.state = OTA_STATE_READY; // 初始化状态为准备就绪
+    // ota_ctx.state = OTA_STATE_READY; // 初始化状态为准备就绪
 
-    ota_engine_process(&ota_ctx);
+    // 事件触发
+    fsm_handle_event(&ota_ctx, EVENT_DOWNLOAD_COMPLETE);    // 触发下载完成事件，驱动状态机转移
+    // 处理状态机
+    // ota_engine_process(&ota_ctx);
 
-    // // 3. 在主循环中周期性调用处理函数
-    // while (1) {
-    //     ota_engine_process(&ota_ctx);
-    //     // ... 执行其他任务 ...
-    // }
+    // 3. 在主循环中周期性调用处理函数
+    while (1) {
+        // 处理状态机
+        ota_engine_process(&ota_ctx);
+        // ... 执行其他任务 ...
+    }
 }
