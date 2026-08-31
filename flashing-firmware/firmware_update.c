@@ -10,6 +10,7 @@ static int flashing_firmware(const firmware_partition_entry_t *entry, const char
 // 固件分区表 - 可按需增删修改
 static const firmware_partition_entry_t firmware_partition_table[] = {
     {"boot",      "boot.bin",      0x08000000, 64 * 1024,   1},
+    {"boot",      "boot.bin.lzma",      0x08000000, 64 * 1024,   1},
     {"app",       "app.bin",       0x08010000, 256 * 1024,  2},
     {"hal",       "hal.bin",       0x08050000, 128 * 1024,  3},
     {"wifi_fw",   "wifi_fw.bin",   0x08070000, 64 * 1024,   4},
