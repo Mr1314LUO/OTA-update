@@ -6,7 +6,6 @@
 #include <stdint.h>
 #include <dirent.h>
 #include <sys/stat.h>
-#include "ota_framework.h"
 #include "firmware_update.h"
 
 // 固件模块数组定义（声明在 firmware_update.h 中）

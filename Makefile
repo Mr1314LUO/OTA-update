@@ -11,25 +11,30 @@ CC      ?= gcc
 # 通用编译选项: 开启警告、C11 标准、调试信息
 CFLAGS  ?= -Wall -Wextra -std=c11 -g
 # 预处理器: 头文件搜索路径（各子目录头文件）
-CPPFLAGS += -I. -IOTA-main -Ifsm-table-driven -Ihal-ota -Iincremental-update -Iflashing-firmware -Imd5_jiao-yan -Ilzma -Ilzma/lzma
+CPPFLAGS += -I. -Ifsm-table-driven -IHAL-ota -Iflashing-firmware -Imd5_jiao-yan -Ilzma -Ilzma/unzip -Ilzma/zip -Ilzma/flow-unzip -I../lzma2602/C -D_POSIX_C_SOURCE=200809L
 
 # ---------- 目标、源文件与构建目录 ----------
 TARGET    := ota_main
-BUILD_DIR := Make
+BUILD_DIR := build
 
 # 源文件（按实际目录分布）；ota_engine 的函数分别实现在
-# OTA-main/ota_main.c 与 fsm-table-driven/table_driven_fsm.c 中
-SRCS := OTA-main/ota_main.c \
-        hal-ota/hal_ota.c \
-        incremental-update/module_manager.c \
+# 根目录 ota_main.c 与 fsm-table-driven/table_driven_fsm.c 中
+SRCS := ota_main.c \
+        HAL-ota/hal_ota.c \
+        flashing-firmware/module_manager.c \
         fsm-table-driven/table_driven_fsm.c \
         flashing-firmware/firmware_update.c \
         md5_jiao-yan/md5.c \
-        lzma/lzma/unzip.c \
-        lzma/lzma/zip.c
+        lzma/unzip/unzip.c \
+        lzma/zip/zip.c \
+        lzma/flow-unzip/unzip_streame.c \
+        ../lzma2602/C/Alloc.c \
+        ../lzma2602/C/LzmaDec.c \
+        ../lzma2602/C/7zCrc.c \
+        ../lzma2602/C/7zCrcOpt.c
 
 # 在子目录中搜索源文件，使 $(BUILD_DIR)/xxx.o 能匹配到对应源文件
-VPATH := OTA-main:fsm-table-driven:hal-ota:incremental-update:flashing-firmware:md5_jiao-yan:lzma:lzma/lzma
+VPATH := .:fsm-table-driven:HAL-ota:flashing-firmware:md5_jiao-yan:lzma:lzma/unzip:lzma/zip:lzma/flow-unzip:../lzma2602/C
 
 # 目标文件统一输出到 BUILD_DIR，依赖文件(.d)由 -MMD 自动生成
 OBJS := $(addprefix $(BUILD_DIR)/, $(notdir $(SRCS:.c=.o)))
@@ -45,8 +50,9 @@ $(BUILD_DIR)/$(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ -llzma
 
 # 编译（模式规则）+ 自动依赖生成（-MMD -MP）
-# Order-Only 前提 | $(BUILD_DIR) 确保目录存在但不触发重建
-$(BUILD_DIR)/%.o: %.c | $(BUILD_DIR)
+# 在 recipe 中确保输出目录存在（order-only 前提在 -include .d 时不可靠）
+$(BUILD_DIR)/%.o: %.c
+	@mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP -c $< -o $@
 
 # 自动创建构建目录

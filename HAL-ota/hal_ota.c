@@ -1,6 +1,5 @@
 #include <stdio.h>
-#include "ota_framework.h"
-#include "hal-ota/hal_ota.h"
+#include "HAL-ota/hal_ota.h"
 // #include "stm32f1xx_hal.h" // 假设使用STM32
 
 void HAL_Init(void){

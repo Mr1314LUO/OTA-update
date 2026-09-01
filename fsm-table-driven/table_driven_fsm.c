@@ -1,5 +1,4 @@
 #include "table_driven_fsm.h"
-#include "md5.h"
 
 // ==========================================
 // 定义状态转移表
@@ -75,8 +74,8 @@ void action_start_verify(ota_context_t *ctx) {
     LOG_BLUE_DOT("action_start_verify\n");
     compare_flie(CHECK_FILE_PATH, MD5_PATH);
 }
-// #define unzip_file_path[256]
-const char *unzip_file_path;
+
+// const char *unzip_file_path;
 // 准备升级
 void action_prepare_update(ota_context_t *ctx) {
     // 校验通过后，标记准备升级
@@ -84,8 +83,7 @@ void action_prepare_update(ota_context_t *ctx) {
     (void)ctx;
     LOG_BLUE_DOT("action_prepare_update\n");
     //压缩固件包
-    compressed_File(CHECK_FILE_PATH, unzip_file_path, "1.0");
-
+    compressed_File(CHECK_FILE_PATH, zip_file_path, "1.0");
 }
 // 开始升级
 void action_start_updating(ota_context_t *ctx) {
@@ -100,9 +98,6 @@ void action_update_success(ota_context_t *ctx) {
     // 升级完成后的清理工作
     (void)ctx;
     LOG_SUCCESS("action_update_success\n");
-
-    // 解压到临时缓冲区
-    uncompressed_File(unzip_file_path, CHECK_FILE_PATH);
 }
 // 升级失败
 void action_update_failed(ota_context_t *ctx) {
