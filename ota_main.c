@@ -1,6 +1,5 @@
 // main.c
-#include "incremental-update/ota_framework.h"
-#include "hal-ota/hal_ota.h"
+#include "HAL-ota/hal_ota.h"
 #include "fsm-table-driven/table_driven_fsm.h"
 
 // 声明外部HAL实例

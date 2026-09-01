@@ -3,11 +3,17 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "ota_framework.h"
-#include "hal-ota/hal_ota.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+
+#include "HAL-ota/hal_ota.h"
+#include "unzip_streame.h"
 
 // 固件升级目录
-#define UPDATE_F_DIR "./Update-Firmware"
+#define UPDATE_F_DIR "./UPDATE-FIRMWARE"
+#define unzip_file_path "UPDATE-FIRMWARE/bootloader.bin"
+#define zip_file_path "UPDATE-FIRMWARE/bootloader.bin.lzma"
 // 最大固件名称长度
 #define MAX_MODULE_NAME 16
 // 最大固件数量
@@ -45,8 +51,18 @@ typedef struct {
 } firmware_partition_entry_t;
 firmware_module_t* module_manager_get_module(const char *name);
 
+// Flash 流式写入上下文（配合 perform_firmware_update_stream 使用）
+typedef struct {
+    uint32_t    start_addr;   // 分区起始地址
+    uint32_t    max_size;     // 分区最大允许大小
+    uint32_t    written;      // 已写入字节数
+    const char *module_name;  // 模块名（错误提示用）
+} flash_write_ctx_t;
+
+
 // 固件升级主函数
 int firmware_update(void);
-
+// 前置声明
+static int flashing_firmware(const firmware_partition_entry_t *entry, const char *file_path, FILE *fp, uint8_t *buf, long file_size);
 
 #endif

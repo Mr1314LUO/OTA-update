@@ -7,12 +7,11 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "printf.h"
+
 #include "firmware_update.h"
 #include "md5.h"
-#include "unzip.h"
 #include "zip.h"
-
-
+#include "unzip_streame.h"
 
 // 前向声明ota_context结构体
 // typedef struct ota_context ota_context;
