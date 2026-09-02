@@ -1,6 +1,10 @@
 /* Alloc.c -- Memory allocation functions
 : Igor Pavlov : Public domain */
 
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 200809L
+#endif
+
 #include "Precomp.h"
 
 #ifdef _WIN32

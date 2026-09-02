@@ -13,9 +13,10 @@
 
 /* ================================================================
  * 固件头部定义（与 firmware_create.c / firmware_update.c 一致）
- * 与 lzma/unzip/unzip.h 共存：该头已定义 FirmwareHeader_t 时跳过
+ * 与 lzma/unzip/unzip.h、lzma/zip/zip.h 共享：统一防护宏
  * ================================================================ */
-#ifndef UNZIP_H
+#ifndef __FIRMWARE_HEADER_T_DEFINED__
+#define __FIRMWARE_HEADER_T_DEFINED__
 typedef struct {
     uint32_t magic;              /* 魔数：0x46575246 ("FRWF") */
     uint32_t version;            /* 固件版本 */
@@ -24,9 +25,11 @@ typedef struct {
     uint32_t crc32;              /* 未压缩数据的 CRC32 */
     uint8_t  reserved[12];       /* 保留字段 */
 } FirmwareHeader_t;
-#endif /* UNZIP_H */
+#endif /* __FIRMWARE_HEADER_T_DEFINED__ */
 
+#ifndef FIRMWARE_MAGIC
 #define FIRMWARE_MAGIC 0x46575246
+#endif
 
 /* 流式解压缓冲区（可按嵌入式内存调整） */
 #define INPUT_BUFFER_SIZE  (4 * 1024)

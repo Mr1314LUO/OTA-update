@@ -1,11 +1,15 @@
 #ifndef PRINTF_H
 #define PRINTF_H
 
+#include <stdio.h>
+#include <string.h>
+
 /**
- * @brief 打印调试日志
+ * @brief 打印调试日志（自动附带源码位置，终端可直接定位）
  * @param fmt 格式化字符串
  * @param ... 可变参数
- * @note 使用示例：
+ * @note 输出格式：[级别] (文件:行号:函数) 消息
+ *       在 VSCode / Trae 终端中 Ctrl+点击 "(file.c:123)" 即可跳转到源码位置
  * @example 打印红色文本
  LOG_DEBUG(RED "这是红色的文字\n" RESET);
  * @example 打印加粗的绿色文本
@@ -24,17 +28,50 @@
  LOG_INFO("查找: \U0001F50D\n");
  */
 
-// 调试日志等级：0=关闭, 1=错误, 2=普通, 3=调试
-#define LOG_LEVEL 2
-#define LOG_INFO(fmt, ...)  do { if (LOG_LEVEL >= 2) printf("[INFO]  "fmt, ##__VA_ARGS__); } while(0)
-#define LOG_DEBUG(fmt, ...) do { if (LOG_LEVEL >= 3) printf("[DEBUG] "fmt, ##__VA_ARGS__); } while(0)
-#define LOG_ERROR(fmt, ...) do { if (LOG_LEVEL >= 1) printf("[ERROR] "fmt, ##__VA_ARGS__); } while(0)
-// #define LOG_DEBUG(fmt, ...) do { if (LOG_LEVEL >= 3) printf("[DEBUG] " BOLDYELLOW fmt, ##__VA_ARGS__ RESET); } while(0)
-// #define LOG_INFO(fmt, ...)  do { if (LOG_LEVEL >= 2) printf("[INFO]  " GRAY fmt, ##__VA_ARGS__ RESET); } while(0)
-// #define LOG_ERROR(fmt, ...) do { if (LOG_LEVEL >= 1) printf("[ERROR] " BOLDRED fmt, ##__VA_ARGS__ RESET); } while(0)
+// ================= 日志等级控制 =================
+// 0=关闭, 1=错误, 2=错误+警告, 3=错误+警告+信息(默认), 4=全部(含调试)
+// 可在编译命令中覆盖：-DLOG_LEVEL=1
+#ifndef LOG_LEVEL
+#define LOG_LEVEL 3
+#endif
 
-#define LOG_SUCCESS(fmt, ...)  do { if (LOG_LEVEL >= 2) printf("[INFO] ✅ " GREEN fmt, ##__VA_ARGS__ RESET); } while(0);
-#define LOG_FAILURE(fmt, ...)  do { if (LOG_LEVEL >= 2) printf("[ERROR] ❌ " RED fmt, ##__VA_ARGS__ RESET); } while(0);
+// ================= 源码位置定位 =================
+// 1=每条日志前缀附加 (文件:行号:函数)，终端可点击跳转源码（默认）
+// 0=关闭定位（发布固件/串口带宽紧张时使用）
+#ifndef LOG_LOC_ENABLE
+#define LOG_LOC_ENABLE 1
+#endif
+
+// __FILE_NAME__（GCC 12+ / Clang 15+）直接提供源文件名；旧编译器回退到运行时截取
+#if defined(__FILE_NAME__)
+#define LOG_LOC_FILE __FILE_NAME__
+#else
+static inline const char *log_basename(const char *path) {
+    const char *p = strrchr(path, '/');
+    return p ? p + 1 : path;
+}
+#define LOG_LOC_FILE log_basename(__FILE__)
+#endif
+
+#if LOG_LOC_ENABLE
+// 位置前缀：灰色 (文件:行号:函数)，在 LOG_* 调用处展开
+#define LOG_LOC_FMT  GRAY "%s:%d:%s" RESET " "
+#define LOG_LOC_ARGS LOG_LOC_FILE, __LINE__, __func__
+#define LOG_IMPL(level, tag, fmt, ...) \
+    do { if (LOG_LEVEL >= (level)) printf(tag LOG_LOC_FMT fmt, LOG_LOC_ARGS, ##__VA_ARGS__); } while (0)
+#else
+#define LOG_IMPL(level, tag, fmt, ...) \
+    do { if (LOG_LEVEL >= (level)) printf(tag fmt, ##__VA_ARGS__); } while (0)
+#endif
+
+#define LOG_ERROR(fmt, ...) LOG_IMPL(1, BOLDRED   "[ERROR]" RESET " ", fmt, ##__VA_ARGS__)
+#define LOG_WARN(fmt, ...)  LOG_IMPL(2, BOLDYELLOW "[WARN]" RESET " ", fmt, ##__VA_ARGS__)
+#define LOG_INFO(fmt, ...)  LOG_IMPL(3, GREEN     "[INFO]" RESET " ", fmt, ##__VA_ARGS__)
+#define LOG_DEBUG(fmt, ...) LOG_IMPL(4, CYAN      "[DEBUG]" RESET " ", fmt, ##__VA_ARGS__)
+
+// 状态/结果类日志（级别同 LOG_INFO）
+#define LOG_SUCCESS(fmt, ...) LOG_IMPL(3, GREEN "[INFO] ✅" RESET " " GREEN, fmt, ##__VA_ARGS__)
+#define LOG_FAILURE(fmt, ...) LOG_IMPL(3, RED   "[ERROR] ❌" RESET " " RED, fmt, ##__VA_ARGS__)
 
 // 彩色圆点🔴 🟠 🟡 🟢 🔵 🟣 🟤 ⚫ ⚪
 // 彩色方块🟥 🟧 🟨 🟩 🟦 🟪 🟫 ⬛ ⬜
@@ -42,15 +79,15 @@
 // 状态标记✅ ❌ ⚠️ ❗ ❓ ⭕ 🔘
 // 三角菱形🔺 🔻 🔸 🔹 🔶 🔷
 // 旗帜星星🚩 🏁 ⭐ 🌟
-#define LOG_RED_DOT(fmt, ...)  do { if (LOG_LEVEL >= 2) printf("[INFO] 🔴 " RED fmt, ##__VA_ARGS__ RESET); } while(0);
-#define LOG_YELLOW_DOT(fmt, ...)  do { if (LOG_LEVEL >= 2) printf("[INFO] 🟡 " YELLOW fmt, ##__VA_ARGS__ RESET); } while(0);
-#define LOG_GREEN_DOT(fmt, ...)  do { if (LOG_LEVEL >= 2) printf("[INFO] 🟢 " GREEN fmt, ##__VA_ARGS__ RESET); } while(0);
-#define LOG_BLUE_DOT(fmt, ...)  do { if (LOG_LEVEL >= 2) printf("[INFO] 🔵 " BLUE fmt, ##__VA_ARGS__ RESET); } while(0);
-#define LOG_GRAY_DOT(fmt, ...)  do { if (LOG_LEVEL >= 2) printf("[INFO] ⚪ " GRAY fmt, ##__VA_ARGS__ RESET); } while(0);
-#define LOG_RED_CUBE(fmt, ...)  do { if (LOG_LEVEL >= 2) printf("[INFO] 🟥 " RED fmt, ##__VA_ARGS__ RESET); } while(0);
-#define LOG_YELLOW_CUBE(fmt, ...)  do { if (LOG_LEVEL >= 2) printf("[INFO] 🟧 " YELLOW fmt, ##__VA_ARGS__ RESET); } while(0);
-#define LOG_GREEN_CUBE(fmt, ...)  do { if (LOG_LEVEL >= 2) printf("[INFO] 🟩 " GREEN fmt, ##__VA_ARGS__ RESET); } while(0);
-#define LOG_BLUE_CUBE(fmt, ...)  do { if (LOG_LEVEL >= 2) printf("[INFO] 🟦 " BLUE fmt, ##__VA_ARGS__ RESET); } while(0);
+#define LOG_RED_DOT(fmt, ...)     LOG_IMPL(3, GRAY "[INFO] 🔴" RESET " " RED, fmt, ##__VA_ARGS__)
+#define LOG_YELLOW_DOT(fmt, ...)  LOG_IMPL(3, GRAY "[INFO] 🟡" RESET " " YELLOW, fmt, ##__VA_ARGS__)
+#define LOG_GREEN_DOT(fmt, ...)   LOG_IMPL(3, GRAY "[INFO] 🟢" RESET " " GREEN, fmt, ##__VA_ARGS__)
+#define LOG_BLUE_DOT(fmt, ...)    LOG_IMPL(3, GRAY "[INFO] 🔵" RESET " " BLUE, fmt, ##__VA_ARGS__)
+#define LOG_GRAY_DOT(fmt, ...)    LOG_IMPL(3, GRAY "[INFO] ⚪" RESET " " GRAY, fmt, ##__VA_ARGS__)
+#define LOG_RED_CUBE(fmt, ...)    LOG_IMPL(3, GRAY "[INFO] 🟥" RESET " " RED, fmt, ##__VA_ARGS__)
+#define LOG_YELLOW_CUBE(fmt, ...) LOG_IMPL(3, GRAY "[INFO] 🟧" RESET " " YELLOW, fmt, ##__VA_ARGS__)
+#define LOG_GREEN_CUBE(fmt, ...)  LOG_IMPL(3, GRAY "[INFO] 🟩" RESET " " GREEN, fmt, ##__VA_ARGS__)
+#define LOG_BLUE_CUBE(fmt, ...)   LOG_IMPL(3, GRAY "[INFO] 🟦" RESET " " BLUE, fmt, ##__VA_ARGS__)
 
 // 定义颜色, 格式: \033[显示方式;前景色2色;背景色m3
 #define RESET   "\033[0m"
