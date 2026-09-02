@@ -17,7 +17,7 @@
 #define OUTPUT_BUFFER_SIZE (4 * 1024)
 
 /* 固件头部结构 */
-/* 与 lzma/flow-unzip/unzip_streame.h 共存：该头已定义 FirmwareHeader_t 时跳过 */
+/* 与 lzma/flow-unzip/unzip_stream.h 共存：该头已定义 FirmwareHeader_t 时跳过 */
 #ifndef __UNZIP_STREAM_H__
 typedef struct {
     uint32_t magic;              /* 魔数 0x46575246 ("FRWF") */

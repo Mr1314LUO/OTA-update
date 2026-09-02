@@ -41,7 +41,7 @@ typedef struct {
 
 /* 解压总字节数（用于统计）
  * 注：此头会被多个编译单元包含，变量加 unused 属性避免
- *     "defined but not used" 警告（真正使用方是 unzip_streame.c） */
+ *     "defined but not used" 警告（真正使用方是 unzip_stream.c） */
 static uint64_t  g_total_uncompressed __attribute__((unused)) = 0;
 
 /* 进度显示 */
@@ -52,7 +52,7 @@ static int g_last_percent __attribute__((unused)) = -1;
 typedef int (*fw_output_write_fn)(void *write_user, const uint8_t *data, size_t size);
 
 /* 执行固件流式解压：将 firmware_path (.lzma 包) 解压到 output_path
- * 成功返回 0，失败返回负数错误码（实现在 unzip_streame.c） */
+ * 成功返回 0，失败返回负数错误码（实现在 unzip_stream.c） */
 int perform_firmware_update(const char *firmware_path, const char *output_path);
 
 /* 真流式解压：解压数据不落盘，逐块写入 write_fn（如直接写 Flash）

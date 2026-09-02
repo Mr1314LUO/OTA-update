@@ -1,4 +1,34 @@
-#include "table_driven_fsm.h"
+#include "ota_fsm.h"
+
+#include <string.h>
+
+#include "printf.h"
+#include "update/module_manager.h"
+#include "update/firmware_update.h"
+#include "security/md5.h"
+#include "compression/lzma/zip/zip.h"
+
+// 定义动作函数类型
+typedef void (*Action)(ota_context_t *ctx);
+
+// 定义转移表条目结构
+typedef struct {
+    ota_state_t current_state;
+    ota_event_t event;
+    ota_state_t next_state;
+    Action action;      // 动作函数指针
+} OtaStateTransition;
+
+// 动作函数前置声明（实现见下文）
+void action_start_check(ota_context_t *ctx);
+void action_fetch_manifest(ota_context_t *ctx);
+void action_start_download(ota_context_t *ctx);
+void action_start_verify(ota_context_t *ctx);
+void action_prepare_update(ota_context_t *ctx);
+void action_start_updating(ota_context_t *ctx);
+void action_update_success(ota_context_t *ctx);
+void action_update_failed(ota_context_t *ctx);
+void action_no_update(ota_context_t *ctx);
 
 // ==========================================
 // 定义状态转移表
@@ -75,7 +105,6 @@ void action_start_verify(ota_context_t *ctx) {
     compare_flie(CHECK_FILE_PATH, MD5_PATH);
 }
 
-// const char *unzip_file_path;
 // 准备升级
 void action_prepare_update(ota_context_t *ctx) {
     // 校验通过后，标记准备升级
@@ -169,19 +198,3 @@ void ota_engine_process(ota_context_t *ctx) {
             break;
     }
 }
-
-// int main() {
-//     // 初始化状态机(初始状态为IDLE,转移表大小为4)
-//     FSM fsm = {STATE_IDLE, sizeof(state_table) / sizeof(StateTransform)};
-
-//     LOG_INFO(BOLDBLUE"\nEvent transitioned:0:启动,1:停止,2:超时\n" RESET);
-//     LOG_INFO(BOLDBLUE"\nState transitioned:0:空闲,1:运行,2:停止\n" RESET);
-
-//     fsm_handle_event(&fsm, EVENT_START);    // 启动 -> 启动电机动作，状态切换到RUNNING
-//     fsm_handle_event(&fsm, EVENT_TIMEOUT);  // 超时 -> 无动作，状态不变
-//     fsm_handle_event(&fsm, EVENT_STOP);     // 停止 -> 停止电机动作，状态切换到STOPPED
-//     fsm_handle_event(&fsm, EVENT_TIMEOUT);  // 超时 -> 无动作，状态不变
-
-
-//     return 0;
-// }

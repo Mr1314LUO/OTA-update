@@ -10,42 +10,42 @@ CC      ?= gcc
 # ---------- 编译选项 ----------
 # 通用编译选项: 开启警告、C11 标准、调试信息
 CFLAGS  ?= -Wall -Wextra -std=c11 -g
-# 预处理器: 头文件搜索路径（各子目录头文件）
-CPPFLAGS += -I. -Ifsm-table-driven -IHAL-ota -Iflashing-firmware -Imd5_jiao-yan -Ilzma -Ilzma/unzip -Ilzma/zip -Ilzma/flow-unzip -I../lzma2602/C -D_POSIX_C_SOURCE=200809L
+# 头文件搜索路径:
+#   .                     —— 以项目根为基准的模块路径式 include（如 hal/hal_ota.h）
+#   include               —— 公共头文件（printf.h）
+#   compression/lzma/sdk  —— LZMA SDK 头文件（LzmaDec.h 等）
+CPPFLAGS += -I. -Iinclude -Icompression/lzma/sdk -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE
 
 # ---------- 目标、源文件与构建目录 ----------
 TARGET    := ota_main
 BUILD_DIR := build
 
-# 源文件（按实际目录分布）；ota_engine 的函数分别实现在
-# 根目录 ota_main.c 与 fsm-table-driven/table_driven_fsm.c 中
-SRCS := ota_main.c \
-        HAL-ota/hal_ota.c \
-        flashing-firmware/module_manager.c \
-        fsm-table-driven/table_driven_fsm.c \
-        flashing-firmware/firmware_update.c \
-        md5_jiao-yan/md5.c \
-        lzma/unzip/unzip.c \
-        lzma/zip/zip.c \
-        lzma/flow-unzip/unzip_streame.c \
-        ../lzma2602/C/Alloc.c \
-        ../lzma2602/C/LzmaDec.c \
-        ../lzma2602/C/7zCrc.c \
-        ../lzma2602/C/7zCrcOpt.c
+SRCS := app/ota_main.c \
+        fsm/ota_fsm.c \
+        update/firmware_update.c \
+        update/module_manager.c \
+        hal/hal_ota.c \
+        security/md5.c \
+        compression/lzma/unzip/unzip.c \
+        compression/lzma/zip/zip.c \
+        compression/lzma/flow-unzip/unzip_stream.c \
+        compression/lzma/sdk/Alloc.c \
+        compression/lzma/sdk/LzmaDec.c \
+        compression/lzma/sdk/7zCrc.c \
+        compression/lzma/sdk/7zCrcOpt.c
 
 # 在子目录中搜索源文件，使 $(BUILD_DIR)/xxx.o 能匹配到对应源文件
-VPATH := .:fsm-table-driven:HAL-ota:flashing-firmware:md5_jiao-yan:lzma:lzma/unzip:lzma/zip:lzma/flow-unzip:../lzma2602/C
+VPATH := app:fsm:update:hal:security:compression/lzma/unzip:compression/lzma/zip:compression/lzma/flow-unzip:compression/lzma/sdk
 
 # 目标文件统一输出到 BUILD_DIR，依赖文件(.d)由 -MMD 自动生成
 OBJS := $(addprefix $(BUILD_DIR)/, $(notdir $(SRCS:.c=.o)))
 DEPS := $(OBJS:.o=.d)
 
 # ---------- 规则 ----------
-# 默认目标
+# 默认目标：仅完成构建
 all: $(BUILD_DIR)/$(TARGET)
-	./$(BUILD_DIR)/$(TARGET)
 
-# 链接
+# 链接（unzip.c 依赖系统 liblzma）
 $(BUILD_DIR)/$(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ -llzma
 

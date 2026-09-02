@@ -1,5 +1,12 @@
 #include "firmware_update.h"
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+
+// flashing_firmware 前置声明（实现见文件末尾）
+static int flashing_firmware(const firmware_partition_entry_t *entry, const char *file_path, FILE *fp, uint8_t *buf, long file_size);
+
 // 固件分区表 - 可按需增删修改
 static const firmware_partition_entry_t firmware_partition_table[] = {
     {"boot",           "boot.bin",               0x08000000, 12 * KB ,     1},
@@ -189,7 +196,7 @@ int firmware_update(void)
 
     // 检查升级目录是否存在
     if (!dir_exists(update_dir)) {
-        printf("[ERROR] UPDATE-FIRMWARE directory not found: %s\n", update_dir);
+        printf("[ERROR] Firmware directory not found: %s\n", update_dir);
         return -1;
     }
     // 打印升级信息
