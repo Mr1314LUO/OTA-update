@@ -12,8 +12,8 @@
 
 // 固件升级目录
 #define UPDATE_F_DIR "./UPDATE-FIRMWARE"
-#define unzip_file_path "UPDATE-FIRMWARE/bootloader.bin"
-#define zip_file_path "UPDATE-FIRMWARE/bootloader.bin.lzma"
+#define unzip_file_path "UPDATE-FIRMWARE/firmware.bin"
+#define zip_file_path "UPDATE-FIRMWARE/firmware.bin.lzma"
 // 最大固件名称长度
 #define MAX_MODULE_NAME 16
 // 最大固件数量
@@ -22,6 +22,10 @@
 #define FIRMWARE_PARTITION_TABLE_SIZE (sizeof(firmware_partition_table) / sizeof(firmware_partition_table[0]))
 // 固件升级缓冲区大小
 #define FIRMWARE_UPDATE_BUF_SIZE (4 * 1024)
+// 单位转换
+#define KB  (1024)
+#define MB  (1024 * 1024)
+
 
 // 外部HAL实例声明
 extern hal_ota_t hal_ota_instance;

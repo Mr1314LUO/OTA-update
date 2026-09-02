@@ -2,12 +2,14 @@
 
 // 固件分区表 - 可按需增删修改
 static const firmware_partition_entry_t firmware_partition_table[] = {
-    {"boot",      "boot.bin",      0x08000000, 12 * 1024 * 1024, 1},
-    {"boot",      "bootloader.bin.lzma",      0x08000000, 12 * 1024 * 1024, 1},
-    {"app",       "app.bin",       0x08010000, 256 * 1024,  2},
-    {"hal",       "hal.bin",       0x08050000, 128 * 1024,  3},
-    {"wifi_fw",   "wifi_fw.bin",   0x08070000, 64 * 1024,   4},
-    {"fs",        "fs.bin",        0x08080000, 128 * 1024,  5},
+    {"boot",           "boot.bin",               0x08000000, 12 * KB ,     1},
+    {"hal",            "hal.bin",                0x08050000, 128 * KB,     2},
+    {"app",            "app.bin",                0x08010000, 256 * KB,     3},
+    {"wifi_fw",        "wifi_fw.bin",            0x08070000, 64 * KB,      4},
+    {"user_data",       "user_data.bin",         0x080A0000, 64 * KB,      5},
+    {"config",          "config.bin",            0x080B0000, 32 * KB,      6},
+    {"firmware",        "firmware.bin.lzma",     0x08000000, 12 * MB,      7},
+    // {"fs",             "fs.bin",                 0x08080000, 128 * KB,     5},
 };
 
 // 检查目录是否存在
@@ -31,6 +33,7 @@ static int flash_output_write(void *write_user, const uint8_t *data, size_t size
                ctx->max_size, ctx->module_name);
         return -1;
     }
+    // 调用 HAL 层写入 Flash
     if (!hal_ota_instance.flash_write(current_addr, data, (uint32_t)size)) {
         printf("[ERROR] Failed to write flash for module: %s at 0x%08X\n",
                ctx->module_name, current_addr);
