@@ -4,13 +4,17 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+
 #include "hal/hal_ota.h"
-#include "compression/lzma/flow-unzip/unzip_stream.h"
+#include "lzma/flow-unzip/unzip_stream.h"
 
 // 固件升级目录
-#define UPDATE_F_DIR "firmware"
-#define unzip_file_path "firmware/firmware.bin"
-#define zip_file_path "firmware/firmware.bin.lzma"
+#define UPDATE_F_DIR "firmware-update"
+#define unzip_file_path "firmware-update/firmware.bin"
+#define zip_file_path "firmware-update/firmware.bin.lzma"
 // 最大固件名称长度
 #define MAX_MODULE_NAME 16
 // 最大固件数量
@@ -62,5 +66,8 @@ typedef struct {
 
 // 固件升级主函数
 int firmware_update(void);
+
+// flashing_firmware 前置声明（实现见文件末尾）
+static int flashing_firmware(const firmware_partition_entry_t *entry, const char *file_path, FILE *fp, uint8_t *buf, long file_size);
 
 #endif

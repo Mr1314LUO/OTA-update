@@ -1,6 +1,9 @@
 // main.c
 #include <stddef.h>
+#include <stdio.h>
+#include <unistd.h>
 
+#include "printf.h"
 #include "hal/hal_ota.h"
 #include "fsm/ota_fsm.h"
 
@@ -25,29 +28,24 @@ bool ota_engine_init(hal_ota_t *hal) {
 int main(void) {
     // 初始化硬件
     HAL_Init();
-    // ...
 
-    ota_context_t ota_ctx = {0};    // 初始化状态机上下文
-
-    //初始化OTA引擎，传入HAL接口
+    // 初始化OTA引擎，传入HAL接口
     if (!ota_engine_init(&hal_ota_instance)) {
-        // 处理错误
+        LOG_ERROR("OTA engine init failed\n");
+        return 1;
     }
 
-    // 初始化状态
-    ota_ctx.state = OTA_STATE_DOWNLOADING;  // 初始化状态为下载状态
-    // ota_ctx.state = OTA_STATE_IDLE; // 初始化状态为空闲
-    // ota_ctx.state = OTA_STATE_READY; // 初始化状态为准备就绪
+    // 初始化状态机上下文，从空闲状态启动
+    ota_context_t ota_ctx = {0};
+    ota_ctx.state = OTA_STATE_IDLE;
 
-    // 事件触发
-    fsm_handle_event(&ota_ctx, EVENT_DOWNLOAD_COMPLETE);    // 触发下载完成事件，驱动状态机转移
-    // 处理状态机
-    // ota_engine_process(&ota_ctx);
-
-    // 3. 在主循环中周期性调用处理函数
+    // 主循环中周期性调用处理函数：
+    // IDLE 状态下引擎自动发起检查，后续流程由各动作的执行结果驱动
     while (1) {
         // 处理状态机
         ota_engine_process(&ota_ctx);
         // ... 执行其他任务 ...
+        usleep(100 * 1000);     // 主机模拟：降低空转频率（嵌入式可替换为低功耗休眠）
     }
+    return 0;
 }

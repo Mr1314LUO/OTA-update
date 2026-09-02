@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "update/firmware_update.h"
+#include "update-table/firmware_update.h"
 
 // 解析升级清单，填充模块信息表（g_modules）
 bool module_manager_parse_manifest(const uint8_t *manifest_data, uint32_t len);
