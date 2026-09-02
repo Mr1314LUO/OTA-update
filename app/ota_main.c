@@ -1,6 +1,8 @@
 // main.c
-#include "HAL-ota/hal_ota.h"
-#include "fsm-table-driven/table_driven_fsm.h"
+#include <stddef.h>
+
+#include "hal/hal_ota.h"
+#include "fsm/ota_fsm.h"
 
 // 声明外部HAL实例
 extern hal_ota_t hal_ota_instance;

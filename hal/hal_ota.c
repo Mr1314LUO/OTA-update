@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <unistd.h>
-#include "HAL-ota/hal_ota.h"
+#include "hal/hal_ota.h"
 // #include "stm32f1xx_hal.h" // 假设使用STM32
 
 void HAL_Init(void){

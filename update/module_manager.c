@@ -7,6 +7,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include "firmware_update.h"
+#include "module_manager.h"
 
 // 固件模块数组定义（声明在 firmware_update.h 中）
 firmware_module_t g_modules[MAX_MODULES];

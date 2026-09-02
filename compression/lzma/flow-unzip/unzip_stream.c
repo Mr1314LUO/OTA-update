@@ -7,8 +7,8 @@
  * 3. 使用 LZMA 流式解码器解压固件数据（4KB 输入/输出缓冲）
  * 4. 将解压后的固件写入输出文件
  *
- * 编译：gcc -o flow-unzip unzip_streame.c LzmaDec.c ../../C/Alloc.c ../../C/7zCrc.c \
- *           ../../C/7zCrcOpt.c ../../C/7zAlloc.c -I../../C -Os -lm
+ * 编译：gcc -o flow-unzip unzip_stream.c LzmaDec.c ../sdk/Alloc.c ../sdk/7zCrc.c \
+ *           ../sdk/7zCrcOpt.c ../sdk/7zAlloc.c -I../sdk -Os -lm
  * 使用：./flow-unzip <输入固件.lzma> [输出固件.bin]
  *
  * 快速测试：
@@ -16,7 +16,7 @@
  *   # 再运行本示例:  ./flow-unzip test_firmware.lzma output.bin
  */
 
-#include "unzip_streame.h"
+#include "unzip_stream.h"
 
 /* ================================================================
  * 文件输出操作函数
