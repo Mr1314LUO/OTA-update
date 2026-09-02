@@ -91,6 +91,7 @@ void action_start_updating(ota_context_t *ctx) {
     // 此部分通常在Bootloader中完成
     (void)ctx;
     LOG_BLUE_DOT("action_start_updating\n");
+    // 调用固件升级函数
     firmware_update();
 }
 // 升级成功

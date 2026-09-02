@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <unistd.h>
 #include "HAL-ota/hal_ota.h"
 // #include "stm32f1xx_hal.h" // 假设使用STM32
 
@@ -15,10 +16,11 @@ static bool stm32_flash_erase(uint32_t addr, uint32_t size) {
     return true;
 }
 static bool stm32_flash_write(uint32_t addr, const uint8_t *data, uint32_t len) {
-    // 主机端桩实现：不访问真实硬件
+    // 主机端桩实现：模拟 Flash 写入速度（约 1 MB/s）
     (void)addr;
     (void)data;
-    (void)len;
+    // 模拟写入耗时：每字节 1 微秒 ≈ 1 MB/s 吞吐量
+    usleep(len*2);
     // ... 调用HAL_FLASH_Program()，按字/半字编程 ...
     return true;
 }

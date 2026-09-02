@@ -1,0 +1,29 @@
+{
+	"files": [
+		{
+			"path": "flashing-firmware/firmware_update.c",
+			"bookmarks": [
+				{
+					"line": 25,
+					"column": 81,
+					"label": "flash_output_write"
+				}
+			]
+		},
+		{
+			"path": "lzma/flow-unzip/unzip_streame.c",
+			"bookmarks": [
+				{
+					"line": 65,
+					"column": 38,
+					"label": ""
+				},
+				{
+					"line": 200,
+					"column": 7,
+					"label": ""
+				}
+			]
+		}
+	]
+}
