@@ -17,6 +17,8 @@
 #define zip_file_path "firmware-update/firmware.bin.lzma"
 // 最大固件名称长度
 #define MAX_MODULE_NAME 16
+// 版本字符串最大长度（含 '\0'），如 "V1.0"
+#define MODULE_VERSION_STR_LEN 16
 // 最大固件数量
 #define MAX_MODULES     8
 // 固件分区表大小
@@ -34,8 +36,8 @@ extern hal_ota_t hal_ota_instance;
 // 固件模块元数据结构体
 typedef struct {
     char name[MAX_MODULE_NAME];   // 模块名，如 "bootloader", "app", "wifi_fw"
-    uint32_t version;             // 当前版本号
-    uint32_t target_version;      // 目标版本号
+    char version[MODULE_VERSION_STR_LEN];        // 当前版本字符串，如 "V1.0"
+    char target_version[MODULE_VERSION_STR_LEN]; // 目标版本字符串，如 "V1.1"
     uint32_t flash_start_addr;    // 在Flash中的起始地址
     uint32_t size;                // 模块大小
     bool update_required;         // 是否需要更新

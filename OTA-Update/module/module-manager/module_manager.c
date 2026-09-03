@@ -1,24 +1,15 @@
 // module_manager.c
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <dirent.h>
-#include <sys/stat.h>
-#include "update-table/firmware_update.h"
 #include "module_manager.h"
 
 // 固件模块数组定义（声明在 firmware_update.h 中）
 firmware_module_t g_modules[MAX_MODULES];
-static int g_module_count = 0;
 
 //
 bool module_manager_parse_manifest(const uint8_t *data, uint32_t len) {
     // 行式清单格式（'#' 开头为注释），每个模块以 "module=<名称>" 开始：
     //   module=firmware
-    //   version=1
-    //   target_version=2
+    //   version=V1.0
+    //   target_version=V1.1
     //   required=1
     g_module_count = 0;
     if (data == NULL || len == 0) {
@@ -70,9 +61,13 @@ bool module_manager_parse_manifest(const uint8_t *data, uint32_t len) {
             // 模块属性出现在 module= 之前，忽略
             continue;
         } else if (strcmp(key, "version") == 0) {
-            cur->version = (uint32_t)strtoul(value, NULL, 0);
+            // 版本字符串原样保存，如 "V1.0"
+            strncpy(cur->version, value, MODULE_VERSION_STR_LEN - 1);
+            cur->version[MODULE_VERSION_STR_LEN - 1] = '\0';
         } else if (strcmp(key, "target_version") == 0) {
-            cur->target_version = (uint32_t)strtoul(value, NULL, 0);
+            // 目标版本字符串原样保存，如 "V1.1"
+            strncpy(cur->target_version, value, MODULE_VERSION_STR_LEN - 1);
+            cur->target_version[MODULE_VERSION_STR_LEN - 1] = '\0';
         } else if (strcmp(key, "size") == 0) {
             cur->size = (uint32_t)strtoul(value, NULL, 0);
         } else if (strcmp(key, "required") == 0) {

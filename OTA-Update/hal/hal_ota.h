@@ -7,9 +7,15 @@
 // ==========================================
 // 硬件抽象层 (HAL) - 定义硬件操作接口
 // ==========================================
+
+// 擦除进度回调（带模块名上下文）
+// progress: 0-100, module_name: 正在擦除的模块名
+typedef void (*erase_progress_cb_t)(uint32_t progress, const char *module_name);
+
 typedef struct {
     // 底层Flash擦除、写入、读取函数指针
-    bool (*flash_erase)(uint32_t addr, uint32_t size);
+    // flash_erase 新增 progress_cb 参数，可按页擦除并回调进度
+    bool (*flash_erase)(uint32_t addr, uint32_t size, erase_progress_cb_t progress_cb, const char *module_name);
     bool (*flash_write)(uint32_t addr, const uint8_t *data, uint32_t len);
     void (*flash_read)(uint32_t addr, uint8_t *data, uint32_t len);
     // 系统复位函数

@@ -12,7 +12,7 @@
  * 使用：./flow-unzip <输入固件.lzma> [输出固件.bin]
  *
  * 快速测试：
- *   # 先创建固件包: ./build/firmware_create test_firmware.bin test_firmware.lzma 1
+ *   # 先创建固件包: ./build/firmware_create test_firmware.bin test_firmware.lzma V1.1
  *   # 再运行本示例:  ./flow-unzip test_firmware.lzma output.bin
  */
 
@@ -204,16 +204,14 @@ int perform_firmware_update_stream(const char *firmware_path,
 {
     FILE           *in_fp         = NULL;
     FirmwareHeader_t header;
+    char            ver_buf[FW_VERSION_STR_LEN];
     uint32_t        calc_crc     = 0;
     uint64_t        total_out    = 0;
     int             ret          = 0;
     long            file_size;
 
-    printf("\n========================================\n");
-    printf("    固件流式解压工具\n");
-    printf("========================================\n\n");
-
-    /* ---- 步骤 1: 打开输入固件包 ---- */
+    printf("========================== 固件流式解压工具 =====================\n");
+        /* ---- 步骤 1: 打开输入固件包 ---- */
     printf("[1/4] 打开固件包: %s\n", firmware_path);
 
     in_fp = fopen(firmware_path, "rb");
@@ -235,7 +233,7 @@ int perform_firmware_update_stream(const char *firmware_path,
     }
 
     /* ---- 步骤 2: 验证固件头部 ---- */
-    printf("[2/4] 验证固件头部...\n");
+    printf("\n[2/4] 验证固件头部...\n");
 
     if (header.magic != FIRMWARE_MAGIC) {
         fprintf(stderr, "错误：无效的固件魔数 (期望: 0x%08X, 实际: 0x%08X)\n",
@@ -253,7 +251,7 @@ int perform_firmware_update_stream(const char *firmware_path,
 
     g_total_uncompressed = header.uncompressed_size;
 
-    printf("  固件版本: %u\n", header.version);
+    printf("  固件版本: %s\n", fw_version_display(&header, ver_buf, sizeof(ver_buf)));
     printf("  文件大小: %ld bytes\n", file_size);
     printf("  压缩大小: %u bytes\n", header.compressed_size);
     printf("  未压缩大小: %u bytes\n", header.uncompressed_size);
@@ -262,7 +260,7 @@ int perform_firmware_update_stream(const char *firmware_path,
            (1.0 - (double)header.compressed_size / header.uncompressed_size) * 100.0);
 
     /* ---- 步骤 3: 流式解压，逐块写入 write_fn ---- */
-    printf("[3/4] 开始流式解压 (输入 %u KB, 输出 %u KB)...\n\n",
+    printf("\n[3/4] 开始流式解压 (输入 %u KB, 输出 %u KB)...\n",
            INPUT_BUFFER_SIZE / 1024, OUTPUT_BUFFER_SIZE / 1024);
 
     ret = decompress_firmware_stream(in_fp, write_fn, write_user,
@@ -285,12 +283,10 @@ int perform_firmware_update_stream(const char *firmware_path,
     }
 
     /* ---- 完成 ---- */
-    printf("\n========================================\n");
-    printf("  固件流式解压成功完成！\n");
-    printf("========================================\n");
-    printf("  固件版本: %u\n", header.version);
+    printf("===================== 固件流式解压成功完成！===================\n");
+    printf("  固件版本: %s\n", fw_version_display(&header, ver_buf, sizeof(ver_buf)));
     printf("  解压大小: %lu bytes\n", (unsigned long)total_out);
-    printf("========================================\n");
+    printf("===============================================================\n");
 
     if (out_crc32) {
         *out_crc32 = calc_crc;
@@ -368,7 +364,7 @@ static void print_usage(const char *program_name)
     printf("  # 1. 创建测试固件 (100KB 随机数据)\n");
     printf("  dd if=/dev/urandom of=test_firmware.bin bs=1024 count=100\n\n");
     printf("  # 2. 打包固件\n");
-    printf("  ./build/firmware_create test_firmware.bin test_firmware.lzma 1\n\n");
+    printf("  ./build/firmware_create test_firmware.bin test_firmware.lzma V1.1\n\n");
     printf("  # 3. 运行本程序解压固件\n");
     printf("  %s test_firmware.lzma\n", program_name);
     printf("  或: %s test_firmware.lzma output.bin\n", program_name);
