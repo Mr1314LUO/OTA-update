@@ -10,12 +10,10 @@
 #include <unistd.h>
 
 #include "printf.h"
-#include "module-manager/module_manager.h"
-#include "update-table/firmware_update.h"
 #include "md5/md5.h"
 #include "lzma/zip/zip.h"
-
-// 主机模拟用演示清单定义在 ota_fsm.c 中（真实设备上由服务器下发）
+#include "module-manager/module_manager.h"
+#include "update-table/firmware_update.h"
 
 // ==========================================
 // 表格驱动 OTA 状态机 —— 对外接口
@@ -23,14 +21,6 @@
 // 不引入任何底层模块（固件升级/校验/压缩）的实现细节，
 // 相关依赖一律下沉到 ota_fsm.c 中
 // ==========================================
-
-// 主机模拟用演示清单：真实设备上由服务器下发
-static const char *demo_manifest =
-    "# OTA upgrade manifest\n"
-    "module=firmware\n"
-    "version=1\n"
-    "target_version=2\n"
-    "required=1\n";
 
 // 定义OTA事件
 typedef enum {

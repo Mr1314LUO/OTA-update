@@ -81,7 +81,7 @@ static void action_start_download(ota_context_t *ctx) {
 
     ctx->total_size = (uint32_t)st.st_size;
     ctx->downloaded_size = 0;
-    LOG_INFO(ICON_SEARCH "开始下载升级包 (%u bytes)...\n" RESET, ctx->total_size);
+    LOG_INFO("🚀 开始下载升级包 (%u bytes)...\n" , ctx->total_size);
 
     const uint32_t chunk = 4096;    // 模拟分块传输
     while (ctx->downloaded_size < ctx->total_size) {
@@ -91,7 +91,7 @@ static void action_start_download(ota_context_t *ctx) {
         }
         ctx->downloaded_size += to_recv;
         ctx->progress = (uint8_t)((ctx->downloaded_size * 100) / ctx->total_size);
-        printf("\r[INFO] 🔵 下载进度: %d%% (%u/%u bytes)" RESET,
+        LOG_INFO("\r🚀🚀🚀 下载进度: %d%% (%u/%u bytes)" ,
                ctx->progress, ctx->downloaded_size, ctx->total_size);
         fflush(stdout);
         usleep(2000);   // 模拟网络传输延迟
@@ -100,10 +100,10 @@ static void action_start_download(ota_context_t *ctx) {
     fsm_handle_event(ctx, EVENT_DOWNLOAD_COMPLETE);
 }
 
-// 验证升级包完整性
+// MD5 验证升级包完整性
 static void action_start_verify(ota_context_t *ctx) {
     // 下载完成后，进行 MD5 完整性校验
-    LOG_BLUE_DOT("开始校验升级包: %s\n" RESET, CHECK_FILE_PATH);
+    LOG_INFO(" 🔍 开始校验升级包: %s\n" RESET, CHECK_FILE_PATH);
     if (compare_flie(CHECK_FILE_PATH, MD5_PATH) == 0) {
         fsm_handle_event(ctx, EVENT_VERIFY_SUCCESS);
     } else {
@@ -115,8 +115,9 @@ static void action_start_verify(ota_context_t *ctx) {
 // 准备升级
 static void action_prepare_update(ota_context_t *ctx) {
     // 校验通过后，打包压缩固件并标记准备升级
-    LOG_BLUE_DOT("校验通过，打包压缩固件...\n" RESET);
-    if (compressed_File(CHECK_FILE_PATH, zip_file_path, "1.0") != 0) {
+    LOG_INFO(" ✅ 校验通过，打包压缩固件...\n");
+    // 目标版本字符串（如 "V1.1"）原样写入固件包头部
+    if (compressed_File(CHECK_FILE_PATH, zip_file_path, g_modules[0].target_version) != 0) {
         snprintf(ctx->error_msg, sizeof(ctx->error_msg), "Package compress failed");
         fsm_handle_event(ctx, EVENT_UPDATE_FAILED);
         return;
@@ -130,7 +131,7 @@ static void action_prepare_update(ota_context_t *ctx) {
 // 开始升级
 static void action_start_updating(ota_context_t *ctx) {
     // Bootloader 启动后，按分区表执行实际升级操作
-    LOG_BLUE_DOT("开始写入固件分区...\n" RESET);
+    LOG_INFO(" 💙 开始写入固件分区...\n");
     if (firmware_update() == 0) {
         fsm_handle_event(ctx, EVENT_UPDATE_COMPLETE);
     } else {
@@ -143,7 +144,7 @@ static void action_start_updating(ota_context_t *ctx) {
 static void action_update_success(ota_context_t *ctx) {
     // 升级完成后的清理工作
     ctx->progress = 100;
-    LOG_SUCCESS("升级成功，固件版本已更新\n" RESET);
+    LOG_SUCCESS("升级成功，固件版本已更新\n");
 
     // 真实设备：复位系统，由 Bootloader 引导新固件（主机端为桩实现）
     // hal_ota_instance.system_reset();
@@ -159,7 +160,7 @@ static void action_update_failed(ota_context_t *ctx) {
 static void action_no_update(ota_context_t *ctx) {
     // 无更新，无需操作
     (void)ctx;
-    LOG_BLUE_DOT("当前已是最新版本，无需升级\n" RESET);
+    LOG_INFO(" 🟢 当前已是最新版本，无需升级\n");
 }
 
 // 查找并执行状态转移
@@ -175,7 +176,7 @@ void fsm_handle_event(ota_context_t *ctx, ota_event_t event) {
             continue;
         }
 
-        LOG_INFO(ICON_PIN "事件 [%s]，状态 %s -> %s\n" RESET,
+        LOG_INFO(ICON_PIN "事件 [%s]，状态 %s -> %s\n" ,
                  event_name(event),
                  state_name(ota_state_table[i].current_state),
                  state_name(ota_state_table[i].next_state));

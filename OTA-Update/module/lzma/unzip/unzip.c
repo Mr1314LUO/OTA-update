@@ -84,6 +84,7 @@ static void decode_lzma_props(const uint8_t props[5], lzma_options_lzma *opts)
 int uncompressed_File(const char *input_path, const char *output_path)
 {
     char              out_path[1024];
+    char              ver_buf[FW_VERSION_STR_LEN];
     FILE             *fin  = NULL;
     FILE             *fout = NULL;
     FirmwareHeader_t  header;
@@ -161,11 +162,11 @@ int uncompressed_File(const char *input_path, const char *output_path)
 
     /* ========== 打印信息 ========== */
     printf("========================================\n");
-    printf("   固件解压缩工具 (liblzma 流式解压)\n");
+    printf(" 固件解压缩工具 (liblzma 流式解压)\n");
     printf("========================================\n\n");
     printf("输入文件:      %s\n", input_path);
     printf("输出文件:      %s\n", out_path);
-    printf("固件版本:      %u\n", header.version);
+    printf("固件版本:      %s\n", fw_version_display(&header, ver_buf, sizeof(ver_buf)));
     printf("压缩大小:      %u bytes\n", header.compressed_size);
     printf("原始大小:      %u bytes\n", header.uncompressed_size);
     printf("缓冲区大小:    %d / %d bytes\n\n", INPUT_BUFFER_SIZE, OUTPUT_BUFFER_SIZE);
@@ -290,3 +291,15 @@ cleanup:
 
     return ret;
 }
+
+#ifdef UNZIP_STANDALONE
+int main(int argc, char *argv[])
+{
+    if (argc < 2 || argc > 3) {
+        print_usage(argv[0]);
+        return UNZIP_ERROR_OPEN_INPUT;
+    }
+
+    return uncompressed_File(argv[1], argc == 3 ? argv[2] : NULL);
+}
+#endif

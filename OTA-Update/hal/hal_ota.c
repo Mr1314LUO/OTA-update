@@ -8,20 +8,40 @@ void HAL_Init(void){
 
 }
 // 实现具体的Flash操作函数
-static bool stm32_flash_erase(uint32_t addr, uint32_t size) {
+// 按页擦除（模拟STM32典型页大小 2KB），每页擦除后回调进度
+static bool stm32_flash_erase(uint32_t addr, uint32_t size, erase_progress_cb_t progress_cb, const char *module_name) {
     // 主机端桩实现：不访问真实硬件
     (void)addr;
-    (void)size;
-    // ... 调用HAL_FLASH_Unlock()，按页擦除等 ...
+
+    // STM32 典型Flash页大小 2KB
+    const uint32_t page_size = 2 * 1024;
+    uint32_t erased = 0;
+
+    while (erased < size) {
+        uint32_t chunk = (size - erased < page_size) ? (size - erased) : page_size;
+        // 模拟每页擦除耗时
+        usleep(chunk * 1);
+        erased += chunk;
+
+        // 回调报告进度百分比
+        if (progress_cb) {
+            uint32_t progress = (erased * 100) / size;
+            if (progress > 100) progress = 100;
+            progress_cb(progress, module_name);
+        }
+    }
+
     return true;
 }
 static bool stm32_flash_write(uint32_t addr, const uint8_t *data, uint32_t len) {
     // 主机端桩实现：模拟 Flash 写入速度（约 1 MB/s）
     (void)addr;
     (void)data;
+
+    // ... 调用HAL_FLASH_Program()，按字/半字编程 ...
     // 模拟写入耗时：每字节 1 微秒 ≈ 1 MB/s 吞吐量
     usleep(len*2);
-    // ... 调用HAL_FLASH_Program()，按字/半字编程 ...
+
     return true;
 }
 static void stm32_flash_read(uint32_t addr, uint8_t *data, uint32_t len) {

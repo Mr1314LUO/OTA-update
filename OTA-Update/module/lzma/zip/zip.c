@@ -13,7 +13,7 @@
  *   gcc -DENABLE_ZIP_CLI zip.c ../sdk/7zCrc.c ../sdk/7zCrcOpt.c \
  *       ../sdk/Alloc.c -I../sdk -I. -o firmware_create -llzma
  *
- * 使用：./firmware_create <input_firmware.bin> <output_firmware.lzma> [version]
+ * 使用：./firmware_create <input_firmware.bin> <output_firmware.lzma> [版本字符串，如 V1.1]
  */
 #include "zip.h"
 
@@ -53,13 +53,13 @@ static const char *lzma_strerror_short(lzma_ret r)
 /* 创建固件更新包：
  *   input_path   — 原始固件二进制文件
  *   output_path  — 输出 .lzma 固件包
- *   version      — 写入固件头的版本号
+ *   version_str  — 写入固件头的版本字符串，如 "V1.1"（NULL/空串时默认 "V1.0"）
  *
  * 返回 0 成功，负数表示失败（错误码含义与原实现一致） */
 int create_firmware_package(
     const char *input_path,
     const char *output_path,
-    uint32_t version)
+    const char *version_str)
 {
     FILE    *input_file   = NULL;
     FILE    *output_file  = NULL;
@@ -70,7 +70,7 @@ int create_firmware_package(
     int      ret_code     = 0;
 
     /* ---- 1. 打开 & 读取输入文件 ---- */
-    printf("=== 固件打包工具 ===\n\n");
+    printf("=========================== 固件打包工具 ===========================\n");
 
     input_file = fopen(input_path, "rb");
     if (!input_file) {
@@ -156,12 +156,19 @@ int create_firmware_package(
         return -5;
     }
 
+    if (version_str == NULL || version_str[0] == '\0') {
+        version_str = "V1.0";
+    }
+
     memset(&header, 0, sizeof(header));
     header.magic             = FIRMWARE_MAGIC;
-    header.version           = version;
+    header.version           = fw_version_encode(version_str);
+    strncpy(header.version_str, version_str, FW_VERSION_STR_LEN - 1);
     header.uncompressed_size = (uint32_t)file_size;
     header.crc32             = crc32;
     /* compressed_size 稍后回填 */
+
+    printf("固件版本: %s\n", header.version_str);
 
     if (fwrite(&header, 1, sizeof(header), output_file) != sizeof(header)) {
         fprintf(stderr, "错误：写入头部失败\n");
@@ -246,6 +253,7 @@ int create_firmware_package(
                ? (1.0 - (double)total_after_header / (double)file_size) * 100.0
                : 0.0);
     printf("输出文件: %s\n", output_path);
+    printf("=========================== 固件打包完成 ===========================\n");
 
     ret_code = 0;
 
@@ -261,16 +269,12 @@ cleanup:
 
 /* 压缩固件包（供 OTA FSM 调用）
  * 将 input_path 原始文件压缩为 output_path (.lzma 包)
- * version_str 为版本字符串，使用 atoi() 解析（如 "1"、"100"、"1.0"→1）
+ * version_str 为版本字符串，原样写入固件头（如 "V1.1"；NULL/空串时默认 "V1.0"）
  * 成功返回 0，失败返回负数（与 create_firmware_package 错误码一致） */
 int compressed_File(const char *input_path, const char *output_path,
                     const char *version_str)
 {
-    uint32_t version = 1;
-    if (version_str && version_str[0] != '\0') {
-        version = (uint32_t)atoi(version_str);
-    }
-    return create_firmware_package(input_path, output_path, version);
+    return create_firmware_package(input_path, output_path, version_str);
 }
 
 /* ==================== 独立 CLI 入口 ====================
@@ -280,13 +284,13 @@ int compressed_File(const char *input_path, const char *output_path,
 #ifdef ENABLE_ZIP_CLI
 static void print_usage(const char *program_name)
 {
-    printf("用法: %s <输入文件.bin> <输出文件.lzma> [版本号]\n", program_name);
+    printf("用法: %s <输入文件.bin> <输出文件.lzma> [版本字符串]\n", program_name);
     printf("\n示例:\n");
-    printf("  %s firmware.bin firmware_v1.0.lzma 100\n", program_name);
+    printf("  %s firmware.bin firmware_v1.1.lzma V1.1\n", program_name);
     printf("\n说明:\n");
     printf("  输入文件为原始固件二进制文件\n");
     printf("  输出文件为 LZMA 压缩的固件更新包\n");
-    printf("  版本号为可选参数，默认为 1\n");
+    printf("  版本字符串为可选参数，如 V1.1，默认为 V1.0\n");
 }
 
 int main(int argc, char *argv[])
@@ -297,11 +301,9 @@ int main(int argc, char *argv[])
     }
     const char *input_path  = argv[1];
     const char *output_path = argv[2];
-    uint32_t    version     = 1;
-    if (argc == 4)
-        version = (uint32_t)atoi(argv[3]);
+    const char *version_str = (argc == 4) ? argv[3] : "V1.0";
 
-    int ret = create_firmware_package(input_path, output_path, version);
+    int ret = create_firmware_package(input_path, output_path, version_str);
     if (ret != 0) {
         fprintf(stderr, "\n固件打包失败 (错误代码: %d)\n", ret);
         return 1;

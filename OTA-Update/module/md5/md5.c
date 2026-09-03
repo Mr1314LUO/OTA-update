@@ -201,7 +201,60 @@ int compare_flie(const char *check_file_path, const char *checksum_path)
     }
 }
 
-// int main(void)
-// {
-//     return compare_flie(CHECK_FILE_PATH, MD5_PATH);
-// }
+/* ==================== 独立 CLI 入口 ====================
+ * 仅在定义 ENABLE_MD5_CLI 时编译，用于主机端独立计算/校验 MD5
+ *
+ * 用法:
+ *   ./md5sum <文件路径>                # 计算文件 MD5
+ *   ./md5sum -c <文件路径> <校验文件>   # 校验文件 MD5
+ *
+ * 编译:
+ *   gcc -DENABLE_MD5_CLI md5.c -I.. -I../.. -o md5sum
+ */
+#ifdef ENABLE_MD5_CLI
+
+static void print_usage(const char *program_name)
+{
+    printf("用法: %s [选项] <文件路径>\n\n", program_name);
+    printf("选项:\n");
+    printf("  -c <文件> <校验文件>   校验文件 MD5 是否与校验文件一致\n");
+    printf("  -h                    显示此帮助信息\n");
+    printf("\n示例:\n");
+    printf("  %s firmware.bin                # 计算 firmware.bin 的 MD5\n", program_name);
+    printf("  %s -c firmware.bin firmware.md5 # 校验 firmware.bin 的 MD5\n", program_name);
+}
+
+int main(int argc, char *argv[])
+{
+    if (argc < 2) {
+        print_usage(argv[0]);
+        return 1;
+    }
+
+    if (strcmp(argv[1], "-h") == 0) {
+        print_usage(argv[0]);
+        return 0;
+    }
+
+    if (strcmp(argv[1], "-c") == 0) {
+        if (argc < 4) {
+            fprintf(stderr, "错误: -c 选项需要两个参数\n");
+            print_usage(argv[0]);
+            return 1;
+        }
+        return compare_flie(argv[2], argv[3]);
+    }
+
+    // 默认：计算文件 MD5
+    {
+        char md5_str[33];
+        if (file_md5(argv[1], md5_str) != 0) {
+            fprintf(stderr, "错误: 无法计算文件 MD5: %s\n", argv[1]);
+            return 1;
+        }
+        printf("%s  %s\n", md5_str, argv[1]);
+    }
+
+    return 0;
+}
+#endif /* ENABLE_MD5_CLI */

@@ -5,11 +5,15 @@
 static const firmware_partition_entry_t firmware_partition_table[] = {
     {"boot",           "boot.bin",               0x08000000, 12 * KB ,     1},
     {"hal",            "hal.bin",                0x08050000, 128 * KB,     2},
+    {"bsp",            "bsp.bin",                0x08070000, 64 * KB,      3},
     {"app",            "app.bin",                0x08010000, 256 * KB,     3},
-    {"wifi_fw",        "wifi_fw.bin",            0x08070000, 64 * KB,      4},
-    {"user_data",       "user_data.bin",         0x080A0000, 64 * KB,      5},
-    {"config",          "config.bin",            0x080B0000, 32 * KB,      6},
-    {"firmware",        "firmware.bin.lzma",     0x08000000, 10 * MB,      7},
+    {"module",         "module.bin",             0x08020000, 1024 * KB,    4},
+    {"nvs",             "nvs.bin",               0x08080000, 64 * KB,      5},
+    {"firmware",        "firmware.bin.lzma",     0x08000000, 8 * MB,      6},
+    // {"user_data",       "user_data.bin",         0x080A0000, 64 * KB,      5},
+    // {"config",          "config.bin",            0x080B0000, 32 * KB,      6},
+    // {"kernel",          "kernel.bin",            0x08000000, 3 * MB,      8},
+    // {"rootfs",         "rootfs.bin",             0x08000000, 5 * MB,      8},
     // {"fs",             "fs.bin",                 0x08080000, 128 * KB,     5},
 };
 
@@ -21,6 +25,14 @@ static int dir_exists(const char *path)
         return 1;
     }
     return 0;
+}
+
+// 擦除进度回调：实时打印擦除百分比（使用 \r 覆盖同一行）
+static void erase_progress_print(uint32_t progress, const char *module_name)
+{
+    LOG_INFO("\r 🚀🚀🚀 擦除进度 Erasing %s... %u%% ", module_name, progress);
+
+    fflush(stdout);
 }
 
 // 解压输出回调：将解压数据逐块直接写入 Flash
@@ -68,11 +80,14 @@ static int flash_firmware_from_file(const firmware_partition_entry_t *entry, con
         /* ---- LZMA 压缩包：真流式升级，解压数据直接写 Flash ---- */
         LOG_INFO("Flashing %s (lzma stream) to 0x%08X...\n",
                  entry->module_name, entry->flash_start_addr);
-        // 擦除Flash分区
-        if (!hal_ota_instance.flash_erase(entry->flash_start_addr, entry->max_size)) {
+        // 擦除Flash分区（按页擦除并实时打印百分比进度）
+        if (!hal_ota_instance.flash_erase(entry->flash_start_addr, entry->max_size,
+                                          erase_progress_print, entry->module_name)) {
+            printf("\n");
             LOG_ERROR("Failed to erase flash for module: %s\n", entry->module_name);
             return -1;
         }
+        LOG_INFO("\r 🚀🚀🚀 擦除进度 Erase %s complete: 100%%\n ", entry->module_name);
         // 流式解压并逐块写入Flash（内部完成固件头部与CRC32校验）
         flash_write_ctx_t ctx = {
             entry->flash_start_addr, entry->max_size, 0, entry->module_name
@@ -82,7 +97,7 @@ static int flash_firmware_from_file(const firmware_partition_entry_t *entry, con
         ret = perform_firmware_update_stream(file_path, flash_output_write, &ctx,
                                              &calc_crc, &total_out);
         if (ret == 0) {
-            LOG_INFO("Successfully flashed %s (%lu bytes) to 0x%08X\n",
+            LOG_SUCCESS("\n🟢 Successfully flashed %s (%lu bytes) to 0x%08X\n",
                      entry->module_name, (unsigned long)total_out, entry->flash_start_addr);
         }
         return ret;
@@ -121,13 +136,16 @@ static int flash_firmware_from_file(const firmware_partition_entry_t *entry, con
     // 打印升级信息
     LOG_INFO("Flashing %s (%ld bytes) to 0x%08X...\n",
              entry->module_name, file_size, entry->flash_start_addr);
-    // 擦除Flash分区
-    if (!hal_ota_instance.flash_erase(entry->flash_start_addr, entry->max_size)) {
+    // 擦除Flash分区（按页擦除并实时打印百分比进度）
+    if (!hal_ota_instance.flash_erase(entry->flash_start_addr, entry->max_size,
+                                      erase_progress_print, entry->module_name)) {
+        printf("\n");
         LOG_ERROR("Failed to erase flash for module: %s\n", entry->module_name);
         fclose(fp);
         free(buf);
         return -1;
     }
+    LOG_INFO("\r 🚀🚀🚀 擦除进度 Erase %s complete: 100%%\n", entry->module_name);
     // 分块读取并写入Flash
     ret = flashing_firmware(entry, file_path, fp, buf, file_size);
     if (ret == 0) {
@@ -199,7 +217,7 @@ int firmware_update(void)
     }
     // 打印升级信息
     LOG_INFO("Starting firmware update from: %s\n", update_dir);
-    LOG_INFO("Found %zu modules in partition table\n\n", FIRMWARE_PARTITION_TABLE_SIZE);
+    LOG_INFO("Found %zu modules in partition table\n", FIRMWARE_PARTITION_TABLE_SIZE);
     // 遍历分区表，按优先级顺序升级
     for (uint32_t i = 0; i < FIRMWARE_PARTITION_TABLE_SIZE; i++) {
         // 获取当前模块的分区表条目
@@ -228,8 +246,8 @@ int firmware_update(void)
         printf("\n");
     }
     // 输出升级结果汇总
-    printf("========================================\n");
-    LOG_INFO("Firmware Update Summary:");
+    printf("===============升级结果=================\n");
+    LOG_INFO("Firmware Update Summary:\n");
     LOG_INFO("  Success: %d\n", success_count);
     LOG_INFO("  Failed:  %d\n", fail_count);
     LOG_INFO("  Skipped: %zu\n", FIRMWARE_PARTITION_TABLE_SIZE - success_count - fail_count);
