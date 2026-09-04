@@ -94,7 +94,10 @@ static void action_start_download(ota_context_t *ctx) {
         LOG_INFO("\r🚀🚀🚀 下载进度: %d%% (%u/%u bytes)" ,
                ctx->progress, ctx->downloaded_size, ctx->total_size);
         fflush(stdout);
-        usleep(2000);   // 模拟网络传输延迟
+
+        // 模拟网络传输延迟
+        // 实际应用中，这应从网络接收缓冲区读取数据
+        usleep(2000);   //延时2ms，模拟网络传输延迟
     }
     printf("\n");
     fsm_handle_event(ctx, EVENT_DOWNLOAD_COMPLETE);
