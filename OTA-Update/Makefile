@@ -28,13 +28,15 @@ SDK_DIR       := $(MODULE_DIR)/lzma/sdk
 # 头文件搜索路径
 # ============================================================================
 # 头文件搜索路径说明：
-#   -I.               → 可找到 printf.h, hal/hal_ota.h
+#   -I.               → 可找到 hal/hal_ota.h
+#   -I$(APP_DIR)      → 可找到应用层头文件 printf.h, ota_main.h
 #   -I$(MODULE_DIR)   → 可找到 fsm/ota_fsm.h, md5/md5.h, lzma/zip/zip.h,
 #                        module-manager/module_manager.h,
 #                        update-table/firmware_update.h,
 #                        lzma/flow-unzip/unzip_stream.h
 #   -I$(SDK_DIR)      → 可找到 7zCrc.h, Alloc.h, LzmaDec.h, 7zAlloc.h 等 SDK 头文件
 INCLUDES := -I. \
+            -I$(APP_DIR) \
             -I$(MODULE_DIR) \
             -I$(SDK_DIR)
 
@@ -92,8 +94,8 @@ APP_OBJS  := $(BUILD_DIR)/ota_main.o
 # 目标定义
 # ============================================================================
 
-# 主应用
-TARGET_OTA := $(BUILD_DIR)/ota
+# 主应用（FreeRTOS 多任务版本，由根目录 Makefile 构建并集成 FreeRTOS 内核）
+TARGET_OTA := ../build/ota_main
 
 # 各模块独立可执行文件（bin 文件）
 TARGET_FIRMWARE_CREATE := $(BUILD_DIR)/firmware_create
@@ -107,8 +109,8 @@ MODULE_BINS := $(TARGET_FIRMWARE_CREATE) \
               $(TARGET_UNZIP) \
               $(TARGET_MD5SUM)
 
-# 默认目标：编译所有
-all: $(BUILD_DIR) $(TARGET_OTA) $(MODULE_BINS)
+# 默认目标：编译所有（模块 bin；主应用 ota_main 由根目录 Makefile 构建）
+all: $(BUILD_DIR) $(MODULE_BINS)
 	@echo ""
 	@echo "============================================"
 	@echo " 编译完成！所有模块二进制文件已生成:"
@@ -157,12 +159,10 @@ $(BUILD_DIR)/%.o: $(MODULE_DIR)/lzma/sdk/%.c
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
 # ============================================================================
-# 主应用 OTA 链接
+# 主应用 OTA 链接（已集成 FreeRTOS，委托根目录 Makefile 构建）
 # ============================================================================
-$(TARGET_OTA): $(APP_OBJS) $(HAL_OBJS) $(FSM_OBJS) $(MD5_OBJS) \
-               $(ZIP_OBJS) $(SDK_OBJS) $(UNZIP_STREAM_OBJS) \
-               $(MODULE_MGR_OBJS) $(UPDATE_TABLE_OBJS)
-	$(CC) $^ $(LDFLAGS) $(LDLIBS) -o $@
+$(TARGET_OTA):
+	@$(MAKE) -C .. build/ota_main
 	@echo "  [LINK] $(TARGET_OTA)"
 
 # ============================================================================
@@ -193,8 +193,8 @@ $(TARGET_MD5SUM): $(MD5_SRCS)
 # 便捷目标
 # ============================================================================
 
-# 仅编译主应用
-ota: $(BUILD_DIR) $(TARGET_OTA)
+# 仅编译主应用（委托根目录 Makefile：FreeRTOS 多任务版本）
+ota: $(TARGET_OTA)
 	@echo "  [DONE] OTA 主应用编译完成"
 
 # 仅编译各模块 bin 文件
@@ -203,7 +203,7 @@ modules: $(BUILD_DIR) $(MODULE_BINS)
 
 # 运行 OTA 主应用
 run: $(TARGET_OTA)
-	$(TARGET_OTA)
+	@$(MAKE) -C .. run
 
 # ============================================================================
 # 清理

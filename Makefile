@@ -9,16 +9,26 @@ CC      ?= gcc
 
 # ---------- 编译选项 ----------
 # 通用编译选项: 开启警告、C11 标准、调试信息
+# -pthread: FreeRTOS POSIX 移植层需要（编译与链接均需携带）
 CFLAGS  ?= -Wall -Wextra -std=c11 -g
+CFLAGS  += -pthread
 # 头文件搜索路径:
-#   OTA-Update                  —— 顶层模块路径式 include（如 hal/hal_ota.h、printf.h）
+#   OTA-Update                  —— 顶层模块路径式 include（如 hal/hal_ota.h）
+#   OTA-Update/app              —— 应用层头文件（如 printf.h、ota_main.h）
 #   OTA-Update/module           —— 模块内部路径式 include（如 fsm/、lzma/、md5/ 等）
 #   OTA-Update/module/lzma/sdk  —— LZMA SDK 头文件（LzmaDec.h 等）
+#   OTA-Update/module/freertos  —— FreeRTOSConfig.h 及内核头文件/移植层
+FREERTOS_DIR := OTA-Update/module/freertos
 CPPFLAGS += -IOTA-Update \
+                -IOTA-Update/app \
                 -IOTA-Update/module \
                 -IOTA-Update/module/lzma/sdk \
+                -I$(FREERTOS_DIR) \
+                -I$(FREERTOS_DIR)/include \
+                -I$(FREERTOS_DIR)/posix \
                 -D_POSIX_C_SOURCE=200809L \
-                -D_DEFAULT_SOURCE
+                -D_DEFAULT_SOURCE \
+                -DUSE_FREERTOS
 
 # ---------- 目标、源文件与构建目录 ----------
 TARGET    := ota_main
@@ -36,7 +46,15 @@ SRCS := OTA-Update/app/ota_main.c \
         OTA-Update/module/lzma/sdk/Alloc.c \
         OTA-Update/module/lzma/sdk/LzmaDec.c \
         OTA-Update/module/lzma/sdk/7zCrc.c \
-        OTA-Update/module/lzma/sdk/7zCrcOpt.c
+        OTA-Update/module/lzma/sdk/7zCrcOpt.c \
+        OTA-Update/module/freertos/list.c \
+        OTA-Update/module/freertos/queue.c \
+        OTA-Update/module/freertos/tasks.c \
+        OTA-Update/module/freertos/timers.c \
+        OTA-Update/module/freertos/event_groups.c \
+        OTA-Update/module/freertos/heap_4.c \
+        OTA-Update/module/freertos/posix/port.c \
+        OTA-Update/module/freertos/posix/utils/wait_for_event.c
 
 # 在子目录中搜索源文件，使 $(BUILD_DIR)/xxx.o 能匹配到对应源文件
 VPATH := OTA-Update/app:OTA-Update/hal: \
@@ -47,7 +65,10 @@ VPATH := OTA-Update/app:OTA-Update/hal: \
         OTA-Update/module/lzma/unzip: \
         OTA-Update/module/lzma/zip: \
         OTA-Update/module/lzma/flow-unzip: \
-        OTA-Update/module/lzma/sdk
+        OTA-Update/module/lzma/sdk: \
+        $(FREERTOS_DIR): \
+        $(FREERTOS_DIR)/posix: \
+        $(FREERTOS_DIR)/posix/utils
 
 # 目标文件统一输出到 BUILD_DIR，依赖文件(.d)由 -MMD 自动生成
 OBJS := $(addprefix $(BUILD_DIR)/, $(notdir $(SRCS:.c=.o)))
