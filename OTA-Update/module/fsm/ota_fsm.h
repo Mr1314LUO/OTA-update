@@ -111,6 +111,16 @@ void fsm_handle_event(ota_context_t *ctx, ota_event_t event);
 // 周期处理：根据当前状态自动触发对应事件
 void ota_engine_process(ota_context_t *ctx);
 
+// ==========================================
+// 平台异步接口（由应用层实现）
+// FreeRTOS 多任务环境：下载在网络任务中执行、确认由用户任务发起，
+// 动作函数发起请求后立即返回，状态机停留等待对应 EVENT_* 事件回送
+// ==========================================
+// 请求平台开始下载升级包（总大小 ctx->total_size），完成后触发 EVENT_DOWNLOAD_COMPLETE / EVENT_DOWNLOAD_FAILED
+void ota_platform_download_request(ota_context_t *ctx);
+// 请求用户确认升级，确认后触发 EVENT_READY_CONFIRM
+void ota_platform_request_confirm(void);
+
 // 动作函数前置声明（实现见下文）
 static void action_start_check(ota_context_t *ctx);
 static void action_fetch_manifest(ota_context_t *ctx);

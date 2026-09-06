@@ -5,11 +5,11 @@
 static const firmware_partition_entry_t firmware_partition_table[] = {
     {"boot",           "boot.bin",               0x08000000, 20 * KB ,     1},
     {"hal",            "hal.bin",                0x08050000, 128 * KB,     2},
-    {"bsp",            "bsp.bin",                0x08070000, 64 * KB,      3},
     {"app",            "app.bin",                0x08010000, 256 * KB,     3},
     {"module",         "module.bin",             0x08020000, 1024 * KB,    4},
     {"nvs",             "nvs.bin",               0x08080000, 64 * KB,      5},
     {"firmware",        "firmware.bin.lzma",     0x08000000, 8 * MB,      6},
+    // {"bsp",            "bsp.bin",                0x08070000, 64 * KB,      3},
     // {"user_data",       "user_data.bin",         0x080A0000, 64 * KB,      5},
     // {"config",          "config.bin",            0x080B0000, 32 * KB,      6},
     // {"kernel",          "kernel.bin",            0x08000000, 3 * MB,      8},

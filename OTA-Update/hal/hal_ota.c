@@ -3,6 +3,27 @@
 #include "hal/hal_ota.h"
 // #include "stm32f1xx_hal.h" // 假设使用STM32
 
+// ==========================================
+// 延时适配
+// FreeRTOS 环境：任务内必须使用 vTaskDelay 让出 CPU（usleep 会阻塞任务线程，
+// 且可能被 tick 信号打断导致调度异常）；us 微秒级延时向上取整到毫秒/tick
+// ==========================================
+#ifdef USE_FREERTOS
+#include "FreeRTOS.h"
+#include "task.h"
+static inline void host_delay_us(uint32_t us) {
+    TickType_t ticks = pdMS_TO_TICKS((us + 999u) / 1000u);
+    if (ticks == 0) {
+        ticks = 1;      // 短延时至少让出一个 tick
+    }
+    vTaskDelay(ticks);
+}
+#else
+static inline void host_delay_us(uint32_t us) {
+    usleep(us);
+}
+#endif
+
 void HAL_Init(void){
     // ... 初始化HAL库 ...
 
@@ -20,7 +41,7 @@ static bool stm32_flash_erase(uint32_t addr, uint32_t size, erase_progress_cb_t 
     while (erased < size) {
         uint32_t chunk = (size - erased < page_size) ? (size - erased) : page_size;
         // 模拟每页擦除耗时
-        usleep(chunk * 1);
+        host_delay_us(chunk * 1);
         erased += chunk;
 
         // 回调报告进度百分比
@@ -40,7 +61,7 @@ static bool stm32_flash_write(uint32_t addr, const uint8_t *data, uint32_t len) 
 
     // ... 调用HAL_FLASH_Program()，按字/半字编程 ...
     // 模拟写入耗时：每字节 1 微秒 ≈ 1 MB/s 吞吐量
-    usleep(len*2);
+    host_delay_us(len*2);
 
     return true;
 }

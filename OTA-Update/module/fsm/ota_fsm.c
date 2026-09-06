@@ -70,7 +70,7 @@ static void action_fetch_manifest(ota_context_t *ctx) {
 static void action_start_download(ota_context_t *ctx) {
     // 真实设备：分块接收升级包并写入下载分区，完成后触发
     //           EVENT_DOWNLOAD_COMPLETE / EVENT_DOWNLOAD_FAILED。
-    // 主机模拟：检查升级包文件并模拟分块下载进度。
+    // 主机模拟：检查升级包文件后，把下载请求交给平台下载任务异步执行。
     struct stat st;
     if (stat(CHECK_FILE_PATH, &st) != 0) {
         snprintf(ctx->error_msg, sizeof(ctx->error_msg), "Package not found: %s", CHECK_FILE_PATH);
@@ -83,24 +83,8 @@ static void action_start_download(ota_context_t *ctx) {
     ctx->downloaded_size = 0;
     LOG_INFO("🚀 开始下载升级包 (%u bytes)...\n" , ctx->total_size);
 
-    const uint32_t chunk = 4096;    // 模拟分块传输
-    while (ctx->downloaded_size < ctx->total_size) {
-        uint32_t to_recv = ctx->total_size - ctx->downloaded_size;
-        if (to_recv > chunk) {
-            to_recv = chunk;
-        }
-        ctx->downloaded_size += to_recv;
-        ctx->progress = (uint8_t)((ctx->downloaded_size * 100) / ctx->total_size);
-        LOG_INFO("\r🚀🚀🚀 下载进度: %d%% (%u/%u bytes)" ,
-               ctx->progress, ctx->downloaded_size, ctx->total_size);
-        fflush(stdout);
-
-        // 模拟网络传输延迟
-        // 实际应用中，这应从网络接收缓冲区读取数据
-        usleep(2000);   //延时2ms，模拟网络传输延迟
-    }
-    printf("\n");
-    fsm_handle_event(ctx, EVENT_DOWNLOAD_COMPLETE);
+    // 发起异步下载：状态保持 DOWNLOADING，等待平台任务回送事件
+    ota_platform_download_request(ctx);
 }
 
 // MD5 验证升级包完整性
@@ -127,8 +111,8 @@ static void action_prepare_update(ota_context_t *ctx) {
     }
 
     // 真实设备：此处可提示用户确认升级；
-    // 主机模拟：自动确认升级。
-    fsm_handle_event(ctx, EVENT_READY_CONFIRM);
+    // 主机模拟：把确认请求交给平台用户任务，等待 EVENT_READY_CONFIRM
+    ota_platform_request_confirm();
 }
 
 // 开始升级
