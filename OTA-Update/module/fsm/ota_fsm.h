@@ -6,12 +6,19 @@
 
 #include <string.h>
 #include <stdio.h>
+// POSIX 文件接口仅主机仿真路径使用;MCU 不依赖文件系统
+#ifdef HOST_SIM
 #include <sys/stat.h>
 #include <unistd.h>
+#endif
 
 #include "printf.h"
 #include "md5/md5.h"
+#include "hal/firmware_source.h"
+// zip.h 仅主机仿真路径用于打包固件;MCU 固件预先打包并存放 SPI Flash
+#ifdef HOST_SIM
 #include "lzma/zip/zip.h"
+#endif
 #include "module-manager/module_manager.h"
 #include "update-table/firmware_update.h"
 

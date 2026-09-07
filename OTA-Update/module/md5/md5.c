@@ -95,6 +95,12 @@ void md5_to_string(const uint8_t digest[16], char *str) {
     str[32] = '\0';
 }
 
+// ==========================================
+// 主机仿真路径：基于文件系统的 MD5 计算与校验
+// MCU 不依赖文件系统，以下函数仅在 HOST_SIM 下编译
+// ==========================================
+#ifdef HOST_SIM
+
 int file_md5(const char *filename, char *md5_str) {
     MD5_CTX ctx;
     FILE *fp = fopen(filename, "rb");
@@ -131,7 +137,6 @@ int file_md5(const char *filename, char *md5_str) {
  * 5. 提取并清理文件名（去除前导空格、转义符和换行符）
  * @param checksum_path  校验文件的路径
  * @param expected_md5   输出缓冲区，用于存储解析出的 32 位 MD5 字符串
- * @param recorded_name  输出缓冲区，用于存储校验文件中记录的文件名（可为空）
  * @return 0 成功，-1 失败
  */
 static int read_verify_file(const char *checksum_path, char expected_md5[33])
@@ -165,6 +170,7 @@ static int read_verify_file(const char *checksum_path, char expected_md5[33])
     fclose(fp);
     return 0;
 }
+
 /**
  * 校验文件的 MD5 值是否与校验文件中存储的期望值一致
  *
@@ -199,6 +205,61 @@ int compare_flie(const char *check_file_path, const char *checksum_path)
         LOG_INFO("实际值：%s\n", md5_str);
         return 1;
     }
+}
+
+#endif /* HOST_SIM */
+
+// ==========================================
+// 通用接口：基于内存 buffer 的 MD5 计算
+// MCU/PC 均可用：用于固件头或元数据摘要
+// ==========================================
+int buffer_md5(const uint8_t *data, size_t len, char *out_md5)
+{
+    if (data == NULL || out_md5 == NULL) {
+        return -1;
+    }
+    MD5_CTX ctx;
+    md5_init(&ctx);
+    md5_update(&ctx, data, len);
+    uint8_t digest[16];
+    md5_final(&ctx, digest);
+    md5_to_string(digest, out_md5);
+    return 0;
+}
+
+// ==========================================
+// MCU 路径核心接口：从 firmware_source_t 分块读取并计算 MD5
+// 避免一次性载入整个固件到 RAM；分块大小 512B 适配 MCU 任务栈
+// 成功返回 0，out_md5 为 33 字节十六进制字符串(含 '\0')
+// ==========================================
+int source_md5(firmware_source_t *src, char *out_md5)
+{
+    if (src == NULL || src->read == NULL || out_md5 == NULL) {
+        return -1;
+    }
+    uint32_t total = (src->size != NULL) ? src->size(src->ctx) : 0u;
+    if (total == 0u) {
+        return -1;
+    }
+    MD5_CTX ctx;
+    md5_init(&ctx);
+    // 分块缓冲：512B 适配 MCU 任务栈；静态化避免栈压力
+    static uint8_t buf[512];
+    uint32_t off = 0u;
+    while (off < total) {
+        uint32_t remain = total - off;
+        uint32_t to_read = (remain > sizeof(buf)) ? (uint32_t)sizeof(buf) : remain;
+        int n = src->read(src->ctx, off, buf, to_read);
+        if (n <= 0) {
+            return -1;
+        }
+        md5_update(&ctx, buf, (size_t)n);
+        off += (uint32_t)n;
+    }
+    uint8_t digest[16];
+    md5_final(&ctx, digest);
+    md5_to_string(digest, out_md5);
+    return 0;
 }
 
 /* ==================== 独立 CLI 入口 ====================

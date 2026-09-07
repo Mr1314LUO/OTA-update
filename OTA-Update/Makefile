@@ -9,7 +9,7 @@ OBJCOPY  := objcopy
 
 # 编译标志
 CFLAGS   := -Wall -Wextra -O2 -g
-CFLAGS   += -DLOG_LEVEL=3 -DLOG_LOC_ENABLE=1
+CFLAGS   += -DLOG_LEVEL=3 -DLOG_LOC_ENABLE=1 -DHOST_SIM
 
 # 链接标志
 LDFLAGS  := -lm

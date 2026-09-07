@@ -21,6 +21,7 @@ CFLAGS  += -pthread
 FREERTOS_DIR := OTA-Update/module/freertos
 CPPFLAGS += -IOTA-Update \
                 -IOTA-Update/app \
+                -IOTA-Update/hal \
                 -IOTA-Update/module \
                 -IOTA-Update/module/lzma/sdk \
                 -I$(FREERTOS_DIR) \
@@ -28,7 +29,8 @@ CPPFLAGS += -IOTA-Update \
                 -I$(FREERTOS_DIR)/posix \
                 -D_POSIX_C_SOURCE=200809L \
                 -D_DEFAULT_SOURCE \
-                -DUSE_FREERTOS
+                -DUSE_FREERTOS \
+                -DHOST_SIM
 
 # ---------- 目标、源文件与构建目录 ----------
 TARGET    := ota_main
@@ -101,8 +103,29 @@ run: $(BUILD_DIR)/$(TARGET)
 clean:
 	rm -rf $(BUILD_DIR)
 
+# P8: PC 仿真回归测试
+# 程序到达 SUCCESS/FAILED 终态后任务驻留(while(1)),需 timeout 杀掉;
+# 通过条件:Summary 中 Failed:0 且出现 "升级成功"(到达 SUCCESS 终态)
+# 终态输出点已加 fflush(stdout),无需 stdbuf -o0; 90s 余量足够(实测 ~35s)
+regression: $(BUILD_DIR)/$(TARGET)
+	@echo "=== P8: PC 仿真回归 ==="
+	@rm -f /tmp/ota_p8.log
+	@timeout 90s ./$(BUILD_DIR)/$(TARGET) > /tmp/ota_p8.log 2>&1; \
+	rc=$$?; \
+	if [ $$rc -eq 124 ]; then echo "(超时 90s 终止 — 正常:终态后驻留)"; \
+	else echo "(进程退出 rc=$$rc)"; fi; \
+	echo ""; echo "=== Summary ==="; \
+	grep -E 'Success:|Failed:|Skipped:|升级成功|升级失败' /tmp/ota_p8.log || true; \
+	echo ""; echo "=== 判定 ==="; \
+	if grep -q 'Failed:  0' /tmp/ota_p8.log && grep -q '升级成功' /tmp/ota_p8.log; then \
+		echo "P8 PASS: Summary Failed:0, 已到达 SUCCESS"; exit 0; \
+	else \
+		echo "P8 FAIL: 见 /tmp/ota_p8.log, 尾部如下:"; \
+		tail -n 30 /tmp/ota_p8.log; exit 1; \
+	fi
+
 # 伪目标声明
-.PHONY: all clean run
+.PHONY: all clean run regression
 
 # 引入自动生成的依赖文件
 -include $(DEPS)

@@ -4,6 +4,32 @@
 // 固件模块数组定义（声明在 firmware_update.h 中）
 firmware_module_t g_modules[MAX_MODULES];
 
+// 手写整数解析(base 0:支持十进制与 0x 十六进制),替代 strtoul。
+// 清单中 size/required 字段均为简单数值,无需 newlib strtoul(可能拉入 locale)。
+static uint32_t parse_uint(const char *s) {
+    uint32_t base = 10u, v = 0u;
+    if (s[0] == '0' && (s[1] == 'x' || s[1] == 'X')) {
+        base = 16u;
+        s += 2;
+    }
+    while (*s != '\0') {
+        int d = -1;
+        if (*s >= '0' && *s <= '9') {
+            d = *s - '0';
+        } else if (base == 16u && *s >= 'a' && *s <= 'f') {
+            d = *s - 'a' + 10;
+        } else if (base == 16u && *s >= 'A' && *s <= 'F') {
+            d = *s - 'A' + 10;
+        }
+        if (d < 0 || (uint32_t)d >= base) {
+            break;
+        }
+        v = v * base + (uint32_t)d;
+        s++;
+    }
+    return v;
+}
+
 //
 bool module_manager_parse_manifest(const uint8_t *data, uint32_t len) {
     // 行式清单格式（'#' 开头为注释），每个模块以 "module=<名称>" 开始：
@@ -43,11 +69,26 @@ bool module_manager_parse_manifest(const uint8_t *data, uint32_t len) {
             continue;
         }
 
-        // 解析 key=value
+        // 解析 key=value(手写,替代 sscanf:sscanf 会拉入 newlib dtoa/localeconv ~数 KB)
         char key[32], value[80];
-        if (sscanf(s, "%31[^=]=%79[^\r\n]", key, value) != 2) {
-            continue;
+        char *eq = strchr(s, '=');
+        if (eq == NULL) {
+            continue;   // 无 '=',跳过
         }
+        size_t klen = (size_t)(eq - s);
+        if (klen == 0 || klen >= sizeof(key)) {
+            continue;   // key 为空或过长(与 sscanf %31 截断+失败语义一致)
+        }
+        memcpy(key, s, klen);
+        key[klen] = '\0';
+        const char *vp = eq + 1;
+        size_t vlen = 0;
+        while (vp[vlen] != '\0' && vp[vlen] != '\r' && vp[vlen] != '\n' &&
+               vlen < sizeof(value) - 1) {
+            vlen++;
+        }
+        memcpy(value, vp, vlen);
+        value[vlen] = '\0';
 
         if (strcmp(key, "module") == 0) {
             // 新模块条目
@@ -69,9 +110,9 @@ bool module_manager_parse_manifest(const uint8_t *data, uint32_t len) {
             strncpy(cur->target_version, value, MODULE_VERSION_STR_LEN - 1);
             cur->target_version[MODULE_VERSION_STR_LEN - 1] = '\0';
         } else if (strcmp(key, "size") == 0) {
-            cur->size = (uint32_t)strtoul(value, NULL, 0);
+            cur->size = parse_uint(value);
         } else if (strcmp(key, "required") == 0) {
-            cur->update_required = (strtoul(value, NULL, 0) != 0);
+            cur->update_required = (parse_uint(value) != 0u);
         }
         // 其余字段（如 md5 等）暂不处理
     }

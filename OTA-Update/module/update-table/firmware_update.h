@@ -6,7 +6,10 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+// sys/stat.h 仅主机仿真路径使用;MCU 不依赖文件系统
+#ifdef HOST_SIM
 #include <sys/stat.h>
+#endif
 
 #include "hal/hal_ota.h"
 #include "lzma/flow-unzip/unzip_stream.h"

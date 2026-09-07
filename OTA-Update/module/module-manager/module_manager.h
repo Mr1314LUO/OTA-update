@@ -6,8 +6,11 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
+// dirent.h / sys/stat.h 仅主机仿真路径使用;MCU 不依赖文件系统
+#ifdef HOST_SIM
 #include <dirent.h>
 #include <sys/stat.h>
+#endif
 #include "update-table/firmware_update.h"
 
 // 固件模块数组（extern 声明在 firmware_update.h 中，定义在 module_manager.c 中）

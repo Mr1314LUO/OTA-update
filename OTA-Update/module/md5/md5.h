@@ -6,8 +6,12 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <ctype.h>
+// dirent.h 仅主机仿真路径下 file_md5/compare_flie 使用;MCU 不依赖文件系统
+#ifdef HOST_SIM
 #include <dirent.h>
+#endif
 #include "printf.h"
+#include "hal/firmware_source.h"
 
 #define CHECK_FILE_PATH "firmware-update/firmware.bin"
 #define MD5_PATH        "firmware-update/firmware.bin.md5"
@@ -44,5 +48,14 @@ typedef struct {
 } MD5_CTX;
 
 int compare_flie(const char *check_file_path, const char *checksum_path);
+
+// ==========================================
+// MCU 路径接口：基于 firmware_source_t 的 MD5 计算
+// - buffer_md5: 对内存中数据直接计算 MD5
+// - source_md5: 从 firmware_source_t 分块读取并计算 MD5(避免一次性载入)
+// 成功返回 0,out_md5 为 33 字节十六进制字符串(含 '\0')
+// ==========================================
+int buffer_md5(const uint8_t *data, size_t len, char *out_md5);
+int source_md5(firmware_source_t *src, char *out_md5);
 
 #endif // MD5_H

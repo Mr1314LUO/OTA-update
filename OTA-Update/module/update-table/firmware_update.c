@@ -252,6 +252,7 @@ int firmware_update(void)
     LOG_INFO("  Failed:  %d\n", fail_count);
     LOG_INFO("  Skipped: %zu\n", FIRMWARE_PARTITION_TABLE_SIZE - success_count - fail_count);
     printf("========================================\n");
+    fflush(stdout);  // 终态驻留前强制刷新,防止 timeout SIGTERM 丢失缓冲输出
     // 如果有升级失败，返回失败
     if (fail_count > 0) {return -1;}
     return 0; // 成功

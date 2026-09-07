@@ -6,6 +6,14 @@
 #include <stdint.h>
 #include <stddef.h>
 
+// MCU 路径:在此(printf.h 顶部)拉入 printf_lite.h,使 printf/snprintf 全局重定向。
+// 这样所有 include 了 printf.h 的 TU(ota_fsm.c / ota_main.c / module_manager.c ...)
+// 的 LOG_* 宏与 snprintf 调用都走 printf_lite/snprintf_lite,不拉入 newlib vfprintf/dtoa。
+// PC 仿真(HOST_SIM)走系统 libc,不重定向。
+#ifndef HOST_SIM
+#include "printf_lite.h"
+#endif
+
 /**
  * @brief 打印调试日志（自动附带源码位置，终端可直接定位）
  * @param fmt 格式化字符串

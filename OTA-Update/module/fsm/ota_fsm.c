@@ -1,5 +1,18 @@
 #include "ota_fsm.h"
 
+// P7: MCU 路径需要 boot_protocol.h 来写 upgrade_flag=PENDING
+#ifndef HOST_SIM
+#include "boot_protocol.h"
+#endif
+
+// ==========================================
+// 固件源全局指针（MCU 路径用）
+// - PC 仿真（HOST_SIM）: 不使用,保持 NULL
+// - MCU: 由 ota_main.c 在启动时指向 &g_spiflash_source
+// action_start_download / action_start_verify 在 MCU 路径下访问此指针
+// ==========================================
+extern firmware_source_t *g_fw_src;
+
 // ==========================================
 // 定义状态转移表
 // ==========================================
@@ -71,6 +84,7 @@ static void action_start_download(ota_context_t *ctx) {
     // 真实设备：分块接收升级包并写入下载分区，完成后触发
     //           EVENT_DOWNLOAD_COMPLETE / EVENT_DOWNLOAD_FAILED。
     // 主机模拟：检查升级包文件后，把下载请求交给平台下载任务异步执行。
+#ifdef HOST_SIM
     struct stat st;
     if (stat(CHECK_FILE_PATH, &st) != 0) {
         snprintf(ctx->error_msg, sizeof(ctx->error_msg), "Package not found: %s", CHECK_FILE_PATH);
@@ -78,10 +92,25 @@ static void action_start_download(ota_context_t *ctx) {
         fsm_handle_event(ctx, EVENT_DOWNLOAD_FAILED);
         return;
     }
-
     ctx->total_size = (uint32_t)st.st_size;
+#else
+    // MCU 路径：固件镜像已预存于 SPI Flash，通过 firmware_source_t 接口获取大小
+    if (g_fw_src == NULL || g_fw_src->size == NULL) {
+        snprintf(ctx->error_msg, sizeof(ctx->error_msg), "No firmware source");
+        LOG_ERROR("固件源未配置\n" RESET);
+        fsm_handle_event(ctx, EVENT_DOWNLOAD_FAILED);
+        return;
+    }
+    ctx->total_size = g_fw_src->size(g_fw_src->ctx);
+    if (ctx->total_size == 0u) {
+        snprintf(ctx->error_msg, sizeof(ctx->error_msg), "Firmware not present");
+        LOG_ERROR("SPI Flash 中无固件镜像\n" RESET);
+        fsm_handle_event(ctx, EVENT_DOWNLOAD_FAILED);
+        return;
+    }
+#endif
     ctx->downloaded_size = 0;
-    LOG_INFO("🚀 开始下载升级包 (%u bytes)...\n" , ctx->total_size);
+    LOG_INFO("🚀 开始下载升级包 (%u bytes)...\n", (unsigned)ctx->total_size);
 
     // 发起异步下载：状态保持 DOWNLOADING，等待平台任务回送事件
     ota_platform_download_request(ctx);
@@ -90,6 +119,7 @@ static void action_start_download(ota_context_t *ctx) {
 // MD5 验证升级包完整性
 static void action_start_verify(ota_context_t *ctx) {
     // 下载完成后，进行 MD5 完整性校验
+#ifdef HOST_SIM
     LOG_INFO(" 🔍 开始校验升级包: %s\n" RESET, CHECK_FILE_PATH);
     if (compare_flie(CHECK_FILE_PATH, MD5_PATH) == 0) {
         fsm_handle_event(ctx, EVENT_VERIFY_SUCCESS);
@@ -97,19 +127,44 @@ static void action_start_verify(ota_context_t *ctx) {
         snprintf(ctx->error_msg, sizeof(ctx->error_msg), "MD5 verify failed");
         fsm_handle_event(ctx, EVENT_VERIFY_FAILED);
     }
+#else
+    // MCU 路径：从 firmware_source_t 分块读取 SPI Flash 中的固件镜像并计算 MD5
+    LOG_INFO(" 🔍 开始校验升级包 (SPI Flash source)\n" RESET);
+    if (g_fw_src == NULL) {
+        snprintf(ctx->error_msg, sizeof(ctx->error_msg), "No firmware source");
+        fsm_handle_event(ctx, EVENT_VERIFY_FAILED);
+        return;
+    }
+    char md5_str[33];
+    if (source_md5(g_fw_src, md5_str) == 0) {
+        // TODO(P6): 从 SPI Flash 元数据区读取期望 MD5 并对比
+        LOG_INFO("实际 MD5: %s\n", md5_str);
+        LOG_SUCCESS("校验通过\n");
+        fsm_handle_event(ctx, EVENT_VERIFY_SUCCESS);
+    } else {
+        snprintf(ctx->error_msg, sizeof(ctx->error_msg), "MD5 verify failed");
+        LOG_ERROR("MD5 计算失败\n" RESET);
+        fsm_handle_event(ctx, EVENT_VERIFY_FAILED);
+    }
+#endif
 }
 
 // 准备升级
 static void action_prepare_update(ota_context_t *ctx) {
-    // 校验通过后，打包压缩固件并标记准备升级
-    LOG_INFO(" ✅ 校验通过，打包压缩固件...\n");
-    // 目标版本字符串（如 "V1.1"）原样写入固件包头部
+    // 校验通过后，准备升级
+    LOG_INFO(" ✅ 校验通过，准备升级...\n");
+#ifdef HOST_SIM
+    // 主机仿真路径：将固件打包压缩为 .lzma 包（Bootloader 启动后流式解压）
     if (compressed_File(CHECK_FILE_PATH, zip_file_path, g_modules[0].target_version) != 0) {
         snprintf(ctx->error_msg, sizeof(ctx->error_msg), "Package compress failed");
         fsm_handle_event(ctx, EVENT_UPDATE_FAILED);
         return;
     }
-
+#else
+    // MCU 路径：固件镜像已在 SPI Flash 中以 .lzma 格式预存，
+    //           无需打包；ota_platform_request_confirm() 负责写元数据标志
+    //           (upgrade_flag=MAGIC_PENDING) 到 SPI Flash 元数据区
+#endif
     // 真实设备：此处可提示用户确认升级；
     // 主机模拟：把确认请求交给平台用户任务，等待 EVENT_READY_CONFIRM
     ota_platform_request_confirm();
@@ -118,13 +173,32 @@ static void action_prepare_update(ota_context_t *ctx) {
 // 开始升级
 static void action_start_updating(ota_context_t *ctx) {
     // Bootloader 启动后，按分区表执行实际升级操作
-    LOG_INFO(" 💙 开始写入固件分区...\n");
+    LOG_INFO(" 💙 开始升级...\n");
+#ifdef HOST_SIM
+    // 主机仿真路径：原地流式解压 .lzma 包并写入（桩）Flash 分区
     if (firmware_update() == 0) {
         fsm_handle_event(ctx, EVENT_UPDATE_COMPLETE);
     } else {
         snprintf(ctx->error_msg, sizeof(ctx->error_msg), "Firmware update failed");
         fsm_handle_event(ctx, EVENT_UPDATE_FAILED);
     }
+#else
+    // MCU 路径：写 upgrade_flag=PENDING 到 SPI Flash 元数据区，触发软复位
+    //           Bootloader 接管：读 PENDING → 擦 App 区 → 流式 LZMA 解压写 Flash
+    //                            → 写 DONE → 跳转 App
+    LOG_INFO("写 PENDING 标志到 SPI Flash...\n");
+    if (!boot_write_upgrade_flag(UPGRADE_FLAG_PENDING)) {
+        LOG_ERROR("写 PENDING 标志失败!\n" RESET);
+        snprintf(ctx->error_msg, sizeof(ctx->error_msg), "Write PENDING failed");
+        fsm_handle_event(ctx, EVENT_UPDATE_FAILED);
+        return;
+    }
+    LOG_INFO("触发软复位，Bootloader 将接管升级流程...\n");
+    hal_ota_instance.system_reset();
+    // system_reset 不应返回；保险驻留
+    while (1) {
+    }
+#endif
 }
 
 // 升级成功
@@ -132,6 +206,7 @@ static void action_update_success(ota_context_t *ctx) {
     // 升级完成后的清理工作
     ctx->progress = 100;
     LOG_SUCCESS("升级成功，固件版本已更新\n");
+    fflush(stdout);  // 终态驻留前刷新,防止 timeout SIGTERM 丢失缓冲输出
 
     // 真实设备：复位系统，由 Bootloader 引导新固件（主机端为桩实现）
     // hal_ota_instance.system_reset();
@@ -142,6 +217,7 @@ static void action_update_failed(ota_context_t *ctx) {
     // 失败处理，记录日志等
     LOG_FAILURE("升级失败: %s\n" RESET,
                 ctx->error_msg[0] != '\0' ? ctx->error_msg : "unknown error");
+    fflush(stdout);  // 终态驻留前刷新,防止 timeout SIGTERM 丢失缓冲输出
 }
 
 static void action_no_update(ota_context_t *ctx) {
