@@ -1,4 +1,4 @@
-# mcu/bootloader/Makefile —— Bootloader 固件(STM32F103C8T6,16KB @ 0x08000000)
+# platforms/stm32f103/bootloader/Makefile —— Bootloader 固件(STM32F103C8T6,16KB @ 0x08000000)
 # 无 FreeRTOS,无 HOST_SIM;裸机 + W25Q + 内部 Flash 擦写 + LZMA 解压
 # 工具链
 CC       = arm-none-eabi-gcc
@@ -16,12 +16,13 @@ CFLAGS += -DZ7_CRC_NUM_TABLES=1
 # 注:不加 -DHOST_SIM —— 走 MCU 路径(unzip_stream 用 g_McuAlloc + firmware_source_t)
 
 # 头文件搜索路径
+#   平台本地: .. / ../cmsis / ../drivers / .
+#   平台无关库: ../../../lib / ../../../lib/app / ../../../lib/hal / ../../../lib/lzma/sdk / ../../../lib/lzma/flow-unzip
 CPPFLAGS = -I.. -I../cmsis -I../drivers -I. \
-           -I../../OTA-Update \
-           -I../../OTA-Update/app -I../../OTA-Update/module \
-           -I../../OTA-Update/module/lzma/sdk \
-           -I../../OTA-Update/module/lzma/flow-unzip \
-           -I../../OTA-Update/hal
+           -I../../../lib \
+           -I../../../lib/app -I../../../lib/hal \
+           -I../../../lib/lzma/sdk \
+           -I../../../lib/lzma/flow-unzip
 
 # 链接:与 App 共用 STM32F103C8Tx_FLASH.ld,通过 --defsym 覆盖 ORIGIN/LENGTH
 LDSCRIPT = ../STM32F103C8Tx_FLASH.ld
@@ -57,10 +58,10 @@ SRCS = ../startup_stm32f103xb.s \
        ../app/syscalls.c \
        boot_protocol.c \
        main.c \
-       ../../OTA-Update/module/lzma/flow-unzip/unzip_stream.c \
-       ../../OTA-Update/module/lzma/sdk/LzmaDec.c \
-       ../../OTA-Update/module/lzma/sdk/7zCrc.c \
-       ../../OTA-Update/module/lzma/sdk/7zCrcOpt.c
+       ../../../lib/lzma/flow-unzip/unzip_stream.c \
+       ../../../lib/lzma/sdk/LzmaDec.c \
+       ../../../lib/lzma/sdk/7zCrc.c \
+       ../../../lib/lzma/sdk/7zCrcOpt.c
 
 OBJS = $(addprefix $(BUILD)/, $(notdir $(SRCS:.c=.o)))
 OBJS := $(OBJS:.s=.o)
@@ -69,8 +70,8 @@ DEPS = $(OBJS:.o=.d)
 # 用 vpath 指令(只搜对应扩展名的依赖),避免 VPATH 变量误把
 # ../app/build/*.o 当作目标(那会导致 make 认为 .o 已是最新)
 vpath %.c ..:../cmsis:../drivers:../app:.:\
-        ../../OTA-Update/module/lzma/flow-unzip:\
-        ../../OTA-Update/module/lzma/sdk
+        ../../../lib/lzma/flow-unzip:\
+        ../../../lib/lzma/sdk
 vpath %.s ..
 
 TARGET = boot

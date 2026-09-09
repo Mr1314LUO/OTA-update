@@ -1,11 +1,10 @@
 # ============================================================================
-# OTA-Update 项目 Makefile
-# 功能：编译各个模块生成独立的二进制文件，支持主机模拟运行
+# lib/Makefile —— 独立工具构建
+# 构建 firmware_create / flow-unzip / unzip / md5sum 四个独立二进制工具
 # ============================================================================
 
 # 编译器与工具链
 CC       := gcc
-OBJCOPY  := objcopy
 
 # 编译标志
 CFLAGS   := -Wall -Wextra -O2 -g
@@ -20,82 +19,46 @@ LDLIBS   := -llzma
 # ============================================================================
 BUILD_DIR     := build
 APP_DIR       := app
-HAL_DIR       := hal
-MODULE_DIR    := module
-SDK_DIR       := $(MODULE_DIR)/lzma/sdk
+SDK_DIR       := lzma/sdk
 
 # ============================================================================
 # 头文件搜索路径
 # ============================================================================
-# 头文件搜索路径说明：
-#   -I.               → 可找到 hal/hal_ota.h
-#   -I$(APP_DIR)      → 可找到应用层头文件 printf.h, ota_main.h
-#   -I$(MODULE_DIR)   → 可找到 fsm/ota_fsm.h, md5/md5.h, lzma/zip/zip.h,
-#                        module-manager/module_manager.h,
-#                        update-table/firmware_update.h,
-#                        lzma/flow-unzip/unzip_stream.h
-#   -I$(SDK_DIR)      → 可找到 7zCrc.h, Alloc.h, LzmaDec.h, 7zAlloc.h 等 SDK 头文件
+#   -I.           → 可找到 hal/hal_ota.h, fsm/ota_fsm.h, md5/md5.h,
+#                    lzma/zip/zip.h, module-manager/module_manager.h,
+#                    update-table/firmware_update.h, lzma/flow-unzip/unzip_stream.h
+#   -I$(APP_DIR)  → 可找到应用层头文件 printf.h, ota_main.h
+#   -I$(SDK_DIR)  → 可找到 7zCrc.h, Alloc.h, LzmaDec.h, 7zAlloc.h 等 SDK 头文件
 INCLUDES := -I. \
             -I$(APP_DIR) \
-            -I$(MODULE_DIR) \
+            -Ihal \
             -I$(SDK_DIR)
 
 # ============================================================================
 # 源文件定义
 # ============================================================================
 
-# HAL 模块
-HAL_SRCS  := $(HAL_DIR)/hal_ota.c
-HAL_OBJS  := $(BUILD_DIR)/hal_ota.o
-
 # LZMA SDK 模块（LzmaDec 用于流式解压，LzmaEnc 用于压缩）
 SDK_SRCS  := $(SDK_DIR)/7zCrc.c \
              $(SDK_DIR)/7zCrcOpt.c \
              $(SDK_DIR)/Alloc.c \
              $(SDK_DIR)/LzmaDec.c
-SDK_OBJS  := $(BUILD_DIR)/7zCrc.o \
-             $(BUILD_DIR)/7zCrcOpt.o \
-             $(BUILD_DIR)/Alloc.o \
-             $(BUILD_DIR)/LzmaDec.o
 
 # LZMA 流式解压模块
-UNZIP_STREAM_SRCS := $(MODULE_DIR)/lzma/flow-unzip/unzip_stream.c
-UNZIP_STREAM_OBJS := $(BUILD_DIR)/unzip_stream.o
+UNZIP_STREAM_SRCS := lzma/flow-unzip/unzip_stream.c
 
 # LZMA 压缩模块（zip）
-ZIP_SRCS  := $(MODULE_DIR)/lzma/zip/zip.c
-ZIP_OBJS  := $(BUILD_DIR)/zip.o
+ZIP_SRCS  := lzma/zip/zip.c
 
 # LZMA 解压模块（unzip，基于 liblzma）
-UNZIP_SRCS := $(MODULE_DIR)/lzma/unzip/unzip.c
-UNZIP_OBJS := $(BUILD_DIR)/unzip.o
+UNZIP_SRCS := lzma/unzip/unzip.c
 
 # MD5 模块
-MD5_SRCS  := $(MODULE_DIR)/md5/md5.c
-MD5_OBJS  := $(BUILD_DIR)/md5.o
-
-# 模块管理模块
-MODULE_MGR_SRCS := $(MODULE_DIR)/module-manager/module_manager.c
-MODULE_MGR_OBJS := $(BUILD_DIR)/module_manager.o
-
-# 固件升级表模块
-UPDATE_TABLE_SRCS := $(MODULE_DIR)/update-table/firmware_update.c
-UPDATE_TABLE_OBJS := $(BUILD_DIR)/firmware_update.o
-
-# FSM 状态机模块
-FSM_SRCS  := $(MODULE_DIR)/fsm/ota_fsm.c
-FSM_OBJS  := $(BUILD_DIR)/ota_fsm.o
-
-# 主应用
-APP_SRCS  := $(APP_DIR)/ota_main.c
-APP_OBJS  := $(BUILD_DIR)/ota_main.o
+MD5_SRCS  := md5/md5.c
 
 # ============================================================================
 # 目标定义
 # ============================================================================
-
-# 主应用（FreeRTOS 多任务版本，由根目录 Makefile 构建并集成 FreeRTOS 内核）
-TARGET_OTA := ../build/ota_main
 
 # 各模块独立可执行文件（bin 文件）
 TARGET_FIRMWARE_CREATE := $(BUILD_DIR)/firmware_create
@@ -109,61 +72,18 @@ MODULE_BINS := $(TARGET_FIRMWARE_CREATE) \
               $(TARGET_UNZIP) \
               $(TARGET_MD5SUM)
 
-# 默认目标：编译所有（模块 bin；主应用 ota_main 由根目录 Makefile 构建）
+# 默认目标：编译所有模块 bin
 all: $(BUILD_DIR) $(MODULE_BINS)
 	@echo ""
 	@echo "============================================"
 	@echo " 编译完成！所有模块二进制文件已生成:"
 	@echo "============================================"
-	@ls -lh $(TARGET_OTA) $(MODULE_BINS) 2>/dev/null | awk '{print "  " $$NF " (" $$5 ")"}'
+	@ls -lh $(MODULE_BINS) 2>/dev/null | awk '{print "  " $$NF " (" $$5 ")"}'
 	@echo "============================================"
 
 # 创建构建目录
 $(BUILD_DIR):
 	@mkdir -p $(BUILD_DIR)
-
-# ============================================================================
-# 通用编译规则：将 .c 编译为 .o
-# ============================================================================
-$(BUILD_DIR)/%.o: %.c
-	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
-
-$(BUILD_DIR)/%.o: $(HAL_DIR)/%.c
-	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
-
-$(BUILD_DIR)/%.o: $(APP_DIR)/%.c
-	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
-
-$(BUILD_DIR)/%.o: $(MODULE_DIR)/fsm/%.c
-	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
-
-$(BUILD_DIR)/%.o: $(MODULE_DIR)/md5/%.c
-	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
-
-$(BUILD_DIR)/%.o: $(MODULE_DIR)/module-manager/%.c
-	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
-
-$(BUILD_DIR)/%.o: $(MODULE_DIR)/update-table/%.c
-	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
-
-$(BUILD_DIR)/%.o: $(MODULE_DIR)/lzma/zip/%.c
-	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
-
-$(BUILD_DIR)/%.o: $(MODULE_DIR)/lzma/flow-unzip/%.c
-	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
-
-$(BUILD_DIR)/%.o: $(MODULE_DIR)/lzma/unzip/%.c
-	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
-
-$(BUILD_DIR)/%.o: $(MODULE_DIR)/lzma/sdk/%.c
-	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
-
-# ============================================================================
-# 主应用 OTA 链接（已集成 FreeRTOS，委托根目录 Makefile 构建）
-# ============================================================================
-$(TARGET_OTA):
-	@$(MAKE) -C .. build/ota_main
-	@echo "  [LINK] $(TARGET_OTA)"
 
 # ============================================================================
 # 模块独立可执行文件（bin 文件）
@@ -193,17 +113,9 @@ $(TARGET_MD5SUM): $(MD5_SRCS)
 # 便捷目标
 # ============================================================================
 
-# 仅编译主应用（委托根目录 Makefile：FreeRTOS 多任务版本）
-ota: $(TARGET_OTA)
-	@echo "  [DONE] OTA 主应用编译完成"
-
 # 仅编译各模块 bin 文件
 modules: $(BUILD_DIR) $(MODULE_BINS)
 	@echo "  [DONE] 各模块二进制文件编译完成"
-
-# 运行 OTA 主应用
-run: $(TARGET_OTA)
-	@$(MAKE) -C .. run
 
 # ============================================================================
 # 清理
@@ -215,4 +127,4 @@ clean:
 # ============================================================================
 # 伪目标
 # ============================================================================
-.PHONY: all clean ota modules run
+.PHONY: all clean modules
