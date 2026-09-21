@@ -17,24 +17,29 @@ LDLIBS   := -llzma
 
 # ============================================================================
 # 目录定义
+# 说明：此 Makefile 由 app/ 目录执行，因此所有路径都必须相对项目根目录
+#       例如：../hal/hal_ota.c、../module/fsm/ota_fsm.c
 # ============================================================================
+ROOT_DIR      := ..
 BUILD_DIR     := build
-APP_DIR       := app
-HAL_DIR       := hal
-MODULE_DIR    := module
+APP_DIR       := $(ROOT_DIR)/app
+HAL_DIR       := $(ROOT_DIR)/hal
+MODULE_DIR    := $(ROOT_DIR)/module
 SDK_DIR       := $(MODULE_DIR)/lzma/sdk
 
 # ============================================================================
 # 头文件搜索路径
 # ============================================================================
 # 头文件搜索路径说明：
-#   -I.               → 可找到 printf.h, hal/hal_ota.h
+#   -I$(APP_DIR)      → 可找到 printf.h
+#   -I$(ROOT_DIR)     → 可找到 hal/hal_ota.h
 #   -I$(MODULE_DIR)   → 可找到 fsm/ota_fsm.h, md5/md5.h, lzma/zip/zip.h,
 #                        module-manager/module_manager.h,
 #                        update-table/firmware_update.h,
 #                        lzma/flow-unzip/unzip_stream.h
 #   -I$(SDK_DIR)      → 可找到 7zCrc.h, Alloc.h, LzmaDec.h, 7zAlloc.h 等 SDK 头文件
-INCLUDES := -I. \
+INCLUDES := -I$(APP_DIR) \
+            -I$(ROOT_DIR) \
             -I$(MODULE_DIR) \
             -I$(SDK_DIR)
 

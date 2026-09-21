@@ -4,7 +4,9 @@
 // 固件模块数组定义（声明在 firmware_update.h 中）
 firmware_module_t g_modules[MAX_MODULES];
 
-//
+// 解析清单文件
+// @param data 指向清单文件数据
+// 返回值：成功返回 true，失败返回 false
 bool module_manager_parse_manifest(const uint8_t *data, uint32_t len) {
     // 行式清单格式（'#' 开头为注释），每个模块以 "module=<名称>" 开始：
     //   module=firmware

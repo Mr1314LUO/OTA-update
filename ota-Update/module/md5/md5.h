@@ -9,8 +9,8 @@
 #include <dirent.h>
 #include "printf.h"
 
-#define CHECK_FILE_PATH "firmware-update/firmware.bin"
-#define MD5_PATH        "firmware-update/firmware.bin.md5"
+#define CHECK_FILE_PATH "../firmware-update/firmware.bin"
+#define MD5_PATH        "../firmware-update/firmware.bin.md5"
 
 
 #define LEFT_ROTATE(x, c) (((x) << (c)) | ((x) >> (32 - (c))))

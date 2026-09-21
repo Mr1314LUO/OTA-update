@@ -12,9 +12,9 @@
 #include "lzma/flow-unzip/unzip_stream.h"
 
 // 固件升级目录
-#define UPDATE_F_DIR "firmware-update"
-#define unzip_file_path "firmware-update/firmware.bin"
-#define zip_file_path "firmware-update/firmware.bin.lzma"
+#define UPDATE_F_DIR "../firmware-update"
+#define unzip_file_path "../firmware-update/firmware.bin"
+#define zip_file_path "../firmware-update/firmware.bin.lzma"
 // 最大固件名称长度
 #define MAX_MODULE_NAME 16
 // 版本字符串最大长度（含 '\0'），如 "V1.0"
