@@ -16,22 +16,6 @@
  LOG_SUCCESS("升级成功，固件版本已更新\n");
  * @example 打印加粗的绿色文本
  LOG_INFO(BOLDGREEN "这是加粗的绿色文字\n" RESET);
- * @example 在同一行中混合不同颜色
- LOG_ERROR(BLUE "蓝色文字" YELLOW "和黄色文字" RESET "以及默认颜色文字\n");
- * @example 原始打印（无级别/位置前缀，自动刷新缓冲区），适合 \r 进度刷新
- LOG_RAW("\r下载进度: %d%%", percent);
- * @example 十六进制转储（受 LOG_LEVEL>=4 控制），调试固件/报文数据
- LOG_HEX(fw_buf, 64);
- * @example 打印状态与结果指示"🚀"     // 启动、运行
- LOG_INFO(ICON_START " Motor started.\n");
- * @example 打印状态与结果指示"🔍"     // 查找、搜索
- LOG_INFO(ICON_SEARCH " Looking for transition rule...\n");
- * @example 打印状态与结果指示"⚠️"     // 警告、注意
- LOG_INFO(ICON_TIMEOUT " Timeout event occurred.\n");
- * @example// ⚠️ 的码点是 U+26A0
- LOG_INFO("警告: \u26A0\n");
- * @example// 🔍 的码点是 U+1F50D (超过4位，必须用大写 \U 并补齐8位)
- LOG_INFO("查找: \U0001F50D\n");
  */
 
 // ================= 日志等级控制 =================
@@ -47,7 +31,55 @@
 #define LOG_LOC_ENABLE 1
 #endif
 
+// 日志等级宏定义
+#define LOG_ERROR(fmt, ...) LOG_IMPL(1, BOLDRED   "[ERROR]" RESET " ", fmt, ##__VA_ARGS__)
+#define LOG_WARN(fmt, ...)  LOG_IMPL(2, BOLDYELLOW "[WARN]" RESET " ", fmt, ##__VA_ARGS__)
+#define LOG_INFO(fmt, ...)  LOG_IMPL(3, GREEN     "[INFO]" RESET " ", fmt, ##__VA_ARGS__)
+#define LOG_DEBUG(fmt, ...) LOG_IMPL(4, CYAN      "[DEBUG]" RESET " ", fmt, ##__VA_ARGS__)
+// 状态/结果类日志
+#define LOG_SUCCESS(fmt, ...) LOG_INFO(GREEN "[SUCC] ✅ " fmt RESET, ##__VA_ARGS__)
+#define LOG_FAILURE(fmt, ...) LOG_ERROR(RED "[FAIL] ❌ " fmt RESET, ##__VA_ARGS__)
+#define LOG_SUCCESS_(fmt, ...) LOG_INFO(GREEN "[SUCC]" U_ICON_SUCCESS fmt RESET, ##__VA_ARGS__)
+#define LOG_FAILURE_(fmt, ...) LOG_ERROR(RED "[FAIL]" U_ICON_FAILURE fmt RESET, ##__VA_ARGS__)
+#define LOG_PRINT_HuoJian(fmt, ...) LOG_INFO(GREEN "[INFO] 🚀 " fmt RESET, ##__VA_ARGS__)
+
+// 状态/结果类日志（图标）
+#define LOG_RED_DOT(fmt, ...)     LOG_IMPL(3, BOLDRED   "[INFO] 🔴 ", fmt RESET, ##__VA_ARGS__)
+#define LOG_YELLOW_DOT(fmt, ...)  LOG_IMPL(3, BOLDYELLOW "[INFO] 🟡 ", fmt RESET, ##__VA_ARGS__)
+#define LOG_GREEN_DOT(fmt, ...)   LOG_IMPL(3, BOLDGREEN "[INFO] 🟢 ", fmt RESET, ##__VA_ARGS__)
+#define LOG_BLUE_DOT(fmt, ...)    LOG_IMPL(3, BOLDBLUE    "[INFO] 🔵 ", fmt RESET, ##__VA_ARGS__)
+#define LOG_GRAY_DOT(fmt, ...)    LOG_IMPL(3, BOLDBGRAY "[INFO] ⚪ ", fmt RESET, ##__VA_ARGS__)
+#define LOG_RED_CUBE(fmt, ...)    LOG_IMPL(3, BOLDRED   "[INFO] 🟥 ", fmt RESET, ##__VA_ARGS__)
+#define LOG_YELLOW_CUBE(fmt, ...) LOG_IMPL(3, BOLDYELLOW  "[INFO] 🟧 ", fmt RESET, ##__VA_ARGS__)
+#define LOG_GREEN_CUBE(fmt, ...)  LOG_IMPL(3, BOLDGREEN "[INFO] 🟩 ", fmt RESET, ##__VA_ARGS__)
+#define LOG_BLUE_CUBE(fmt, ...)   LOG_IMPL(3, BOLDBLUE    "[INFO] 🟦 ", fmt RESET, ##__VA_ARGS__)
+
+//🌊	\U0001F30A	BLUE	海浪
+//🚫	\U0001F6AB	RED	错误
+#define ICON_WAVE        BLUE   "🌊 " RESET    // 海浪
+#define ICON_ERROR       RED    "🚫 " RESET    // 错误
+
+// 彩色圆点🔴 🟠 🟡 🟢 🔵 🟣 🟤 ⚫ ⚪
+#define RED_DOT "🔴"
+#define YELLOW_DOT "🟡"
+#define GREEN_DOT "🟢"
+#define BLUE_DOT "🔵"
+#define GRAY_DOT "⚪"
+// 彩色方块🟥 🟧 🟨 🟩 🟦 🟪 🟫 ⬛ ⬜
+#define RED_CUBE "🟥"
+#define YELLOW_CUBE "🟧"
+#define GREEN_CUBE "🟩"
+#define BLUE_CUBE "🟦"
+#define GRAY_CUBE "🟪"
+// 彩色爱心❤️ 🧡 💛 💚 💙 💜 🤎 🖤 🤍 🤎
+#define HEART "❤️"
+// 三角菱形🔺 🔻 🔸 🔹 🔶 🔷
+// 旗帜星星🚩 🏁 ⭐ 🌟 🌠 🌝 🌚 🌞
+
+
+
 // __FILE_NAME__（GCC 12+ / Clang 15+）直接提供源文件名；旧编译器回退到运行时截取
+// 例如：__FILE__ = "module/fsm/ota_fsm.c" -> "ota_fsm.c"
 #if defined(__FILE_NAME__)
 #define LOG_LOC_FILE __FILE_NAME__
 #else
@@ -58,10 +90,13 @@ static inline const char *log_basename(const char *path) {
 #define LOG_LOC_FILE log_basename(__FILE__)
 #endif
 
+// 日志打印实现函数声明
 #if LOG_LOC_ENABLE
 // 位置前缀：灰色 (文件:行号:函数)，在 LOG_* 调用处展开
 #define LOG_LOC_FMT  GRAY "%s:%d:%s" RESET " "
 #define LOG_LOC_ARGS LOG_LOC_FILE, __LINE__, __func__
+
+// 实际打印实现：根据日志等级和位置定位，选择是否打印
 #define LOG_IMPL(level, tag, fmt, ...) \
     do { if (LOG_LEVEL >= (level)) printf(tag LOG_LOC_FMT fmt, LOG_LOC_ARGS, ##__VA_ARGS__); } while (0)
 #else
@@ -69,39 +104,16 @@ static inline const char *log_basename(const char *path) {
     do { if (LOG_LEVEL >= (level)) printf(tag fmt, ##__VA_ARGS__); } while (0)
 #endif
 
-#define LOG_ERROR(fmt, ...) LOG_IMPL(1, BOLDRED   "[ERROR]" RESET " ", fmt, ##__VA_ARGS__)
-#define LOG_WARN(fmt, ...)  LOG_IMPL(2, BOLDYELLOW "[WARN]" RESET " ", fmt, ##__VA_ARGS__)
-#define LOG_INFO(fmt, ...)  LOG_IMPL(3, GREEN     "[INFO]" RESET " ", fmt, ##__VA_ARGS__)
-#define LOG_DEBUG(fmt, ...) LOG_IMPL(4, CYAN      "[DEBUG]" RESET " ", fmt, ##__VA_ARGS__)
-
 // 原始打印：无级别/位置前缀，适合 \r 单行进度刷新等场景；主动 flush 保证立即输出
 #define LOG_RAW(...) \
     do { printf(__VA_ARGS__); fflush(stdout); } while (0)
 
-// 状态/结果类日志
-#define LOG_SUCCESS(fmt, ...) LOG_INFO(GREEN "[SUCC] ✅ " fmt RESET, ##__VA_ARGS__)
-#define LOG_FAILURE(fmt, ...) LOG_ERROR(RED "[FAIL] ❌ " fmt RESET, ##__VA_ARGS__)
-
-/*
- * @brief 状态/结果类日志（图标）
- * @param fmt 格式化字符串
- * @param ... 可变参数
- * @note 彩色圆点🔴 🟠 🟡 🟢 🔵 🟣 🟤 ⚫ ⚪
- *       彩色方块🟥 🟧 🟨 🟩 🟦 🟪 🟫 ⬛ ⬜
- *       彩色爱心❤️ 🧡 💛 💚 💙 💜 🤎 🖤 🤍
- *       状态标记✅ ❌ ⚠️ ❗ ❓ ⭕ 🔘
- *       三角菱形🔺 🔻 🔸 🔹 🔶 🔷
- *       旗帜星星🚩 🏁 ⭐ 🌟 🌠 🌝 🌚 🌞
- */
-#define LOG_RED_DOT(fmt, ...)     LOG_IMPL(3, BOLDRED   "[INFO] 🔴 ", fmt RESET, ##__VA_ARGS__)
-#define LOG_YELLOW_DOT(fmt, ...)  LOG_IMPL(3, BOLDYELLOW "[INFO] 🟡 ", fmt RESET, ##__VA_ARGS__)
-#define LOG_GREEN_DOT(fmt, ...)   LOG_IMPL(3, BOLDGREEN "[INFO] 🟢 ", fmt RESET, ##__VA_ARGS__)
-#define LOG_BLUE_DOT(fmt, ...)    LOG_IMPL(3, BOLDBLUE    "[INFO] 🔵 ", fmt RESET, ##__VA_ARGS__)
-#define LOG_GRAY_DOT(fmt, ...)    LOG_IMPL(3, BOLDBGRAY "[INFO] ⚪ ", fmt RESET, ##__VA_ARGS__)
-#define LOG_RED_CUBE(fmt, ...)    LOG_IMPL(3, BOLDRED   "[INFO] 🟥 ", fmt RESET, ##__VA_ARGS__)
-#define LOG_YELLOW_CUBE(fmt, ...) LOG_IMPL(3, BOLDYELLOW  "[INFO] 🟧 ", fmt RESET, ##__VA_ARGS__)
-#define LOG_GREEN_CUBE(fmt, ...)  LOG_IMPL(3, BOLDGREEN "[INFO] 🟩 ", fmt RESET, ##__VA_ARGS__)
-#define LOG_BLUE_CUBE(fmt, ...)   LOG_IMPL(3, BOLDBLUE    "[INFO] 🟦 ", fmt RESET, ##__VA_ARGS__)
+// 十六进制转储（受 LOG_LEVEL>=4 控制），调试固件/报文数据
+#if LOG_LEVEL >= 4
+#define LOG_HEX(data, len) log_hex_dump((data), (size_t)(len))
+#else
+#define LOG_HEX(data, len) ((void)0)
+#endif
 
 // 定义颜色, 格式: \033[显示方式;前景色2色;背景色m3
 #define RESET   "\033[0m"       /* Reset */
@@ -124,30 +136,6 @@ static inline const char *log_basename(const char *path) {
 #define BOLDCYAN    "\033[1m\033[36m"      /* 粗青 */
 #define BOLDWHITE   "\033[1m\033[37m"      /* 粗白 */
 
-// 十六进制转储：每行 16 字节，带 ASCII 列；受 LOG_LEVEL>=4（调试级）控制
-static inline void log_hex_dump(const void *data, size_t len) {
-    const uint8_t *p = (const uint8_t *)data;
-    for (size_t i = 0; i < len; i += 16) {
-        printf(CYAN "[DEBUG]" RESET GRAY " %04zx " RESET, i);
-        for (size_t j = 0; j < 16; ++j) {
-            if (i + j < len) printf("%02X ", p[i + j]);
-            else             printf("   ");
-            if (j == 7)      printf(" ");
-        }
-        printf(GRAY "|" RESET);
-        for (size_t j = 0; j < 16 && i + j < len; ++j) {
-            uint8_t c = p[i + j];
-            printf("%c", (c >= 0x20 && c < 0x7F) ? c : '.');
-        }
-        printf(GRAY "|" RESET "\n");
-    }
-}
-#if LOG_LEVEL >= 4
-#define LOG_HEX(data, len) log_hex_dump((data), (size_t)(len))
-#else
-#define LOG_HEX(data, len) ((void)0)
-#endif
-
 /*
 状态与结果指示 (Status & Results)：
 常用于函数返回值判断、测试结果输出或状态机最终状态汇报。
@@ -158,6 +146,9 @@ static inline void log_hex_dump(const void *data, size_t len) {
 🛑	\U0001F6D1	RED	停止、阻断、致命错误
 ❗	\u2757	RED	强调错误、危险
 ℹ️	\u2139	BLUE	提示、信息说明
+❓	\u2753	YELLOW	疑问、待定
+⭕	\u274C	RED	待办、未完成
+
 */
 // 状态与结果指示宏定义 (颜色 + 符号 + 重置)
 #define ICON_SUCCESS  GREEN  "✅ " RESET    // 成功、通过、完成
@@ -166,6 +157,8 @@ static inline void log_hex_dump(const void *data, size_t len) {
 #define ICON_STOP     RED    "🛑 " RESET    // 停止、阻断、致命错误
 #define ICON_DANGER   RED    "❗ " RESET    // 强调错误、危险
 #define ICON_INFO     BLUE   "ℹ️  " RESET    // 提示、信息说明
+#define ICON_QUESTION YELLOW "❓ " RESET    // 疑问、待定
+#define ICON_TODO     RED    "⭕ " RESET    // 待办、未完成
 
 #define U_ICON_SUCCESS  GREEN  "\u2705 "    // 成功、通过、完成
 #define U_ICON_FAIL     RED    "\u274C "     // 失败、错误、拒绝
@@ -252,5 +245,25 @@ static inline void log_hex_dump(const void *data, size_t len) {
 #define U_ICON_UNFOLD      CYAN   "\u25BE "    // 展开节点
 #define U_ICON_PROGRESS_F  GREEN  "\u2588 "    // 进度条满格
 #define U_ICON_PROGRESS_E  WHITE  "\u2591 "    // 进度条背景空格
+
+
+// 十六进制转储：每行 16 字节，带 ASCII 列；受 LOG_LEVEL>=4（调试级）控制
+static inline void log_hex_dump(const void *data, size_t len) {
+    const uint8_t *p = (const uint8_t *)data;
+    for (size_t i = 0; i < len; i += 16) {
+        printf(CYAN "[DEBUG]" RESET GRAY " %04zx " RESET, i);
+        for (size_t j = 0; j < 16; ++j) {
+            if (i + j < len) printf("%02X ", p[i + j]);
+            else             printf("   ");
+            if (j == 7)      printf(" ");
+        }
+        printf(GRAY "|" RESET);
+        for (size_t j = 0; j < 16 && i + j < len; ++j) {
+            uint8_t c = p[i + j];
+            printf("%c", (c >= 0x20 && c < 0x7F) ? c : '.');
+        }
+        printf(GRAY "|" RESET "\n");
+    }
+}
 
 #endif // PRINTF_H
